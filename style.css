@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Montserrat', sans-serif; 
-    background-color: #dba24b; 
+    background-color: #f0f0f0; 
     color: #f0f0f0;
     min-height: 100vh;
     line-height: 1.6;
@@ -52,7 +52,7 @@ h1 {
 
 .subtitle {
     color: #aaa;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     margin-bottom: 20px;
     font-weight: 300;
 }
@@ -464,4 +464,5 @@ footer {
     .modal-content {
         padding: 30px 20px;
     }
+
 }
