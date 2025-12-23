@@ -131,7 +131,7 @@ function promptAddNewMember(name) {
     }
 
     // UPDATED: Added Gender prompt
-    const gender = prompt('Gender ( Male or Female):', '');
+    const gender = prompt('Gender (Male or Female):', '');
     const email = prompt('Email :', '');
     const address = prompt('Address (optional):', '');
 
@@ -247,3 +247,4 @@ setCurrentDate();
 loadTodaysAttendance();
 
 searchInput.focus();
+
