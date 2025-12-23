@@ -94,7 +94,7 @@ function displaySearchResults(members, originalQuery) {
         const memberName = member.NAME || '';
         const memberPhone = member['PHONE NUMBER'] || '';
         const memberGender = member.GENDER || '';
-        const memberEmail = member['EMAIL '] || ''; // Note the space after EMAIL
+        const memberEmail = member['EMAIL '] || ''; 
         
         // Create display elements only if data exists
         const phoneDisplay = memberPhone ? `<div class="member-phone"><i class="fas fa-phone"></i> ${memberPhone}</div>` : '';
@@ -131,14 +131,14 @@ function promptAddNewMember(name) {
     }
 
     // UPDATED: Added Gender prompt
-    const gender = prompt('Gender (e.g., Male, Female, Other):', '');
-    const email = prompt('Email (optional):', '');
+    const gender = prompt('Gender ( Male or Female):', '');
+    const email = prompt('Email :', '');
     const address = prompt('Address (optional):', '');
 
     addNewMember({
         Name: name,
         Phone: phone,
-        Gender: gender || '', // NEW: Gender field
+        Gender: gender || '', 
         Email: email || '',
         Address: address || '',
         DateJoined: new Date().toISOString().split('T')[0]
@@ -245,4 +245,5 @@ window.addEventListener('click', (event) => {
 
 setCurrentDate();
 loadTodaysAttendance();
+
 searchInput.focus();
