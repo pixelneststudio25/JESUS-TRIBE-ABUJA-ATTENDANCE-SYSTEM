@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Sunday Service | Attendance</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Using Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Changed to Montserrat Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="535017751_17846637198542614_5843385776720118802_n.jpg" alt="Community Logo" class="logo">
+            <h1><i class="fas fa-users"></i> Sunday Service Attendance</h1>
+            <p class="subtitle">Search for a member below to mark them as present.</p>
+            <div class="date-display" id="currentDate">Loading date...</div>
+        </header>
+
+        <main>
+            <!-- SEARCH SECTION -->
+            <section class="card">
+                <h2><i class="fas fa-search"></i> Mark Attendance</h2>
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="Type member name or phone number..." autocomplete="off" autofocus>
+                    <div class="search-hint">Results will appear below as you type.</div>
+                </div>
+                
+                <!-- DYNAMIC SEARCH RESULTS -->
+                <div id="searchResults" class="search-results">
+                    <!-- Member results and "Add New" option will appear here -->
+                </div>
+            </section>
+
+            <!-- TODAY'S ATTENDANCE LOG -->
+            <section class="card">
+                <div class="attendance-header">
+                    <h2><i class="fas fa-clipboard-list"></i> Today's Attendance</h2>
+                    <button class="btn-icon" id="refreshBtn" title="Refresh List"><i class="fas fa-sync-alt"></i></button>
+                </div>
+                <div id="attendanceLog" class="attendance-log">
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard-check"></i>
+                        <p>No attendance marked yet for today.</p>
+                    </div>
+                </div>
+                <div class="stats-bar" id="statsBar">
+                    <span><strong id="presentCount">0</strong> Present</span>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Community Attendance System &bull; Admin Interface</p>
+        </footer>
+    </div>
+
+    <!-- ATTENDANCE CONFIRMATION MODAL (Hidden by default) -->
+    <div class="modal" id="successModal">
+        <div class="modal-content">
+            <div class="modal-icon success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h3>Attendance Marked!</h3>
+            <p id="successMessage">Member has been checked in successfully.</p>
+            <button class="btn-primary" id="closeModal">OK</button>
+        </div>
+    </div>
+
+    <!-- JavaScript File -->
+    <script src="script.js"></script>
+</body>
+</html>
