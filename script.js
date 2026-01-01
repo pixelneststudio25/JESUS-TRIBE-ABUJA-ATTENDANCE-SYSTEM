@@ -1,6 +1,6 @@
 // === SCRIPT.JS - Frontend Logic for Attendance System ===
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxTmsZHWd-0ZNWbcKWj17v7a1ceNj9IQk0VlU3ys6u_fCrouCcNDg1WGoQAG8qZcHyk/exec"; 
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwrRXnt3K5xHkGp867nWigO3MWovrGlIg5g8GvYIzB1cONancKtWxJ5wRlOqTDPS03C/exec"; 
 
 // DOM Elements
 const searchInput = document.getElementById('searchInput');
@@ -122,23 +122,66 @@ function displaySearchResults(members, originalQuery) {
 }
 // ==================== ADD NEW MEMBER ====================
 function promptAddNewMember(name) {
-    const phone = prompt(`Add new member: "${name}"\n\nPlease enter their phone number:`, '');
-    if (phone === null) return;
+    // Helper function to validate phone (numbers only)
+    function isValidPhone(phone) {
+        return /^\d+$/.test(phone); // Returns true if string contains only digits
+    }
 
-    if (!phone.trim()) {
+    // Helper function to validate email (must be @gmail.com)
+    function isValidEmail(email) {
+        // If email is empty, it's okay (optional field). Otherwise, check if it ends with @gmail.com
+        return email === '' || /^[^\s@]+@gmail\.com$/i.test(email);
+    }
+
+    let phone = prompt(`Add new member: "${name}"\n\nPlease enter their phone number (digits only):`, '');
+    if (phone === null) return; // User cancelled
+
+    phone = phone.trim();
+    if (!phone) {
         alert('Phone number is required to add a new member.');
         return;
     }
+    if (!isValidPhone(phone)) {
+        alert('Invalid phone number. Please use digits only (0-9).');
+        return; // Stop and let them try again
+    }
 
-    // UPDATED: Added Gender prompt
-    const gender = prompt('Gender (Male or Female):', '');
-    const email = prompt('Email :', '');
-    const address = prompt('Address (optional):', '');
+    let parentPhone = prompt('Parent/Guardian Phone Number (digits only, optional):', '');
+    // If they click "Cancel", treat it as empty string and continue.
+    if (parentPhone === null) {
+        parentPhone = ''; // User cancelled optional field -> empty
+    } else {
+        parentPhone = parentPhone.trim();
+        // Only validate if they actually typed something
+        if (parentPhone && !isValidPhone(parentPhone)) {
+            alert('Invalid parent phone number. Please use digits only (0-9).');
+            return;
+        }
+    }
 
+    let gender = prompt('Gender (Male or Female):', '');
+    // Optional: Add basic gender validation here if needed
+    // if (gender && !['Male', 'Female'].includes(gender.trim())) { ... }
+
+    let email = prompt('Email (must be a @gmail.com address, optional):', '');
+    if (email !== null) {
+        email = email.trim();
+        if (email && !isValidEmail(email)) {
+            alert('Invalid email. Please provide a valid @gmail.com address or leave it empty.');
+            return;
+        }
+    } else {
+        return;
+    }
+
+    let address = prompt('Address (optional):', '');
+
+    // Call the function that sends data to Google Sheets
     addNewMember({
         Name: name,
         Phone: phone,
-        Gender: gender || '', 
+        ParentPhone: parentPhone || '', // NEW FIELD
+        Gender: gender || '',
         Email: email || '',
         Address: address || '',
         DateJoined: new Date().toISOString().split('T')[0]
@@ -247,4 +290,5 @@ setCurrentDate();
 loadTodaysAttendance();
 
 searchInput.focus();
+
 
