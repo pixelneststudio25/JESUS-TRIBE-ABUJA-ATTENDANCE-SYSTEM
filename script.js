@@ -12,6 +12,10 @@ const successModal = document.getElementById('successModal');
 const closeModal = document.getElementById('closeModal');
 const successMessage = document.getElementById('successMessage');
 const currentDateEl = document.getElementById('currentDate');
+const genderModal = document.getElementById('genderModal');
+const pendingMemberName = document.getElementById('pendingMemberName');
+const genderButtons = document.querySelectorAll('.gender-btn');
+const cancelGenderBtn = document.getElementById('cancelGender');
 
 // Set today's date in the header
 function setCurrentDate() {
@@ -122,14 +126,32 @@ function displaySearchResults(members, originalQuery) {
 }
 // ==================== ADD NEW MEMBER ====================
 function promptAddNewMember(name) {
+    // Store the name for use in the modal
+    window.pendingNewMember = { name: name };
+    
+    // Set the name in the modal
+    pendingMemberName.textContent = name;
+    
+    // Show the gender modal
+    genderModal.style.display = 'flex';
+}
+
+// ==================== GENDER MODAL LOGIC ====================
+// This function continues the process after gender is selected
+function continueAddMember(gender) {
+    // Close the gender modal
+    genderModal.style.display = 'none';
+    
+    // Now continue with the rest of the prompts
+    const name = window.pendingNewMember.name;
+    
     // Helper function to validate phone (numbers only)
     function isValidPhone(phone) {
-        return /^\d+$/.test(phone); // Returns true if string contains only digits
+        return /^\d+$/.test(phone);
     }
 
     // Helper function to validate email (must be @gmail.com)
     function isValidEmail(email) {
-        // If email is empty, it's okay (optional field). Otherwise, check if it ends with @gmail.com
         return email === '' || /^[^\s@]+@gmail\.com$/i.test(email);
     }
 
@@ -143,27 +165,22 @@ function promptAddNewMember(name) {
     }
     if (!isValidPhone(phone)) {
         alert('Invalid phone number. Please use digits only (0-9).');
-        return; // Stop and let them try again
+        return;
     }
 
-    let parentPhone = prompt('Parent/Guardian Phone Number (digits only, optional):', '');
-    // If they click "Cancel", treat it as empty string and continue.
+    // Parent phone (updated version with better cancel handling)
+    let parentPhone = prompt('Parent/Guardian Phone Number:', '');
     if (parentPhone === null) {
         parentPhone = ''; // User cancelled optional field -> empty
     } else {
         parentPhone = parentPhone.trim();
-        // Only validate if they actually typed something
         if (parentPhone && !isValidPhone(parentPhone)) {
             alert('Invalid parent phone number. Please use digits only (0-9).');
             return;
         }
     }
 
-    let gender = prompt('Gender (Male or Female):', '');
-    // Optional: Add basic gender validation here if needed
-    // if (gender && !['Male', 'Female'].includes(gender.trim())) { ... }
-
-    let email = prompt('Email (must be a @gmail.com address, optional):', '');
+    let email = prompt('Email:', '');
     if (email !== null) {
         email = email.trim();
         if (email && !isValidEmail(email)) {
@@ -180,13 +197,27 @@ function promptAddNewMember(name) {
     addNewMember({
         Name: name,
         Phone: phone,
-        ParentPhone: parentPhone || '', // NEW FIELD
-        Gender: gender || '',
+        ParentPhone: parentPhone || '',
+        Gender: gender, // This now comes from the modal choice
         Email: email || '',
         Address: address || '',
         DateJoined: new Date().toISOString().split('T')[0]
     });
 }
+
+// Event listeners for gender buttons
+genderButtons.forEach(button => {
+    button.addEventListener('click', function() {
+        const selectedGender = this.getAttribute('data-gender');
+        continueAddMember(selectedGender);
+    });
+});
+
+// Cancel button in gender modal
+cancelGenderBtn.addEventListener('click', function() {
+    genderModal.style.display = 'none';
+    window.pendingNewMember = null; // Clear the pending data
+});
 
 async function addNewMember(memberData) {
     const result = await callBackend('addMember', memberData);
@@ -290,5 +321,6 @@ setCurrentDate();
 loadTodaysAttendance();
 
 searchInput.focus();
+
 
 
