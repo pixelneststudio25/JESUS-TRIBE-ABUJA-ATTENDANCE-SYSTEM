@@ -68,8 +68,27 @@
             <button class="btn-primary" id="closeModal">OK</button>
         </div>
     </div>
+    <!-- Gender Choice Modal (Hidden by default) -->
+    <div class="modal" id="genderModal">
+        <div class="modal-content choice-modal">
+            <h3>Select Gender</h3>
+            <p>Please select the gender for <strong id="pendingMemberName">[Name]</strong>:</p>
+        
+            <div class="gender-buttons">
+                <button class="gender-btn" data-gender="Male">
+                    <i class="fas fa-mars"></i> Male
+                </button>
+                <button class="gender-btn" data-gender="Female">
+                     <i class="fas fa-venus"></i> Female
+                </button>
+            </div>
+        
+            <button class="btn-cancel" id="cancelGender">Cancel</button>
+        </div>
+    </div>
 
     <!-- JavaScript File -->
     <script src="script.js"></script>
 </body>
+
 </html>
