@@ -277,8 +277,19 @@ function displayTodaysAttendance(records) {
 
     let html = '';
     records.forEach(record => {
-        const time = new Date(record.Timestamp);
-        const timeString = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        // SIMPLER FIX: Extract just the time part if the full timestamp is problematic
+        let timeString = '--:--';
+        const timestampStr = record.Timestamp || '';
+        
+        // Try to extract HH:MM:SS pattern from the timestamp string
+        const timeMatch = timestampStr.match(/(\d{1,2}:\d{2}:\d{2})/);
+        if (timeMatch) {
+            const [hours, minutes] = timeMatch[1].split(':');
+            // Convert to 12-hour format
+            const hour = parseInt(hours) % 12 || 12;
+            const ampm = parseInt(hours) >= 12 ? 'PM' : 'AM';
+            timeString = `${hour}:${minutes} ${ampm}`;
+        }
 
         html += `
             <div class="attendance-item">
@@ -321,6 +332,7 @@ setCurrentDate();
 loadTodaysAttendance();
 
 searchInput.focus();
+
 
 
 
