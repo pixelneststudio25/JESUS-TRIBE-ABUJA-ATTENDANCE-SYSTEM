@@ -460,6 +460,47 @@ function showOfferingMessage(message, type) {
     }
 }
 
+// ==================== GENDER MODAL SETUP ====================
+// Wait for the page to fully load before setting up event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Get elements
+    const genderModal = document.getElementById('genderModal');
+    const pendingMemberName = document.getElementById('pendingMemberName');
+    const cancelGenderBtn = document.getElementById('cancelGender');
+    
+    if (!genderModal || !pendingMemberName || !cancelGenderBtn) {
+        console.error('ERROR: Could not find gender modal elements!');
+        return;
+    }
+    
+    // Use event delegation for gender buttons (works even if buttons are added later)
+    genderModal.addEventListener('click', function(event) {
+        const clickedButton = event.target.closest('.gender-btn');
+        if (clickedButton) {
+            const selectedGender = clickedButton.getAttribute('data-gender');
+            console.log('Gender selected:', selectedGender);
+            continueAddMember(selectedGender);
+        }
+    });
+    
+    // Cancel button
+    cancelGenderBtn.addEventListener('click', function() {
+        genderModal.style.display = 'none';
+        window.pendingNewMember = null;
+    });
+    
+    // Close modal when clicking outside
+    genderModal.addEventListener('click', function(event) {
+        if (event.target === genderModal) {
+            genderModal.style.display = 'none';
+            window.pendingNewMember = null;
+        }
+    });
+    
+    console.log('Gender modal setup complete');
+});
+
+
 
 
 
