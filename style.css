@@ -523,4 +523,129 @@ footer {
     background: #333;
     color: #f0f0f0;
 }
+/* ===== OFFERING SECTION STYLES ===== */
+.offering-input {
+    background: #252525;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #333;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #FF6600;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#offeringAmount {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.3rem;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #1a1a1a;
+    color: #f0f0f0;
+    font-weight: 600;
+}
+
+#offeringAmount:focus {
+    border-color: #FF6600;
+    outline: none;
+}
+
+.btn-primary {
+    background: #FF6600;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.btn-primary:hover {
+    background: #e55a00;
+    transform: translateY(-2px);
+}
+
+.offering-message {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.offering-success {
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    border: 1px solid #2ecc71;
+}
+
+.offering-error {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+    border: 1px solid #e74c3c;
+}
+
+.today-offering {
+    background: #252525;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #333;
+}
+
+.today-offering h3 {
+    color: #FF6600;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.offering-item {
+    padding: 15px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.offering-item:last-child {
+    border-bottom: none;
+}
+
+.offering-amount {
+    font-weight: 600;
+    color: #2ecc71;
+    font-size: 1.2rem;
+}
+
+.offering-time {
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.no-offering {
+    text-align: center;
+    padding: 30px;
+    color: #666;
+    font-style: italic;
+}
 
