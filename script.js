@@ -131,23 +131,39 @@ function promptAddNewMember(name) {
         return /^0\d{10}$/.test(phone); // Starts with 0, then exactly 10 more digits
     }
 
-    // UPDATED: Accepts multiple email domains
+    // Accepts multiple email domains
     function isValidEmail(email) {
         if (email === '') return true; // Empty is okay
         const emailRegex = /^[^\s@]+@(gmail\.com|yahoo\.com|outlook\.com)$/i;
         return emailRegex.test(email);
     }
 
-    // Store all member data as we collect it
+    // Store all member data
     const memberData = {
         Name: name,
         DateJoined: new Date().toISOString().split('T')[0]
     };
 
-    // === STEP 1: PHONE NUMBER ===
+    // === STEP 1: SHOW GENDER DROPDOWN MODAL ===
+    // This uses the dropdown modal you created earlier
+    window.pendingNewMember = { name: name, data: memberData };
+    pendingMemberName.textContent = name;
+    genderModal.style.display = 'flex';
+}
+
+// ==================== CONTINUE AFTER GENDER SELECTION ====================
+function continueAddMember(gender) {
+    // Close the gender modal
+    genderModal.style.display = 'none';
+    
+    const name = window.pendingNewMember.name;
+    const memberData = window.pendingNewMember.data;
+    memberData.Gender = gender;
+    
+        // === STEP 2: PHONE NUMBER  ===
     let phoneValid = false;
     while (!phoneValid) {
-        let phone = prompt(`Add new member: "${name}"\n\nPhone Number (must start with 0 and be 11 digits, e.g., 08012345678):`, '');
+        let phone = prompt(`Add new member: "${name}"\n\nPhone Number (must start with 0, Optional):`, '');
         
         if (phone === null) {
             // User cancelled the entire process
@@ -155,13 +171,17 @@ function promptAddNewMember(name) {
         }
         
         phone = phone.trim();
+        
+        // EMPTY IS NOW OKAY - user can skip by clicking OK without typing
         if (!phone) {
-            alert('Phone number is required to add a new member.');
-            continue; // Ask again
+            memberData.Phone = ''; // Store as empty string
+            phoneValid = true;
+            continue; // Move to next step
         }
         
+        // If they DID enter something, validate it
         if (!isValidPhone(phone)) {
-            alert('Phone must start with 0 and be exactly 11 digits (e.g., 08012345678).');
+            alert('If providing a phone, it must start with 0.');
             continue; // Ask again
         }
         
@@ -169,13 +189,12 @@ function promptAddNewMember(name) {
         phoneValid = true;
     }
 
-    // === STEP 2: PARENT PHONE ===
+    // === STEP 3: PARENT PHONE ===
     let parentPhoneValid = false;
     while (!parentPhoneValid) {
-        let parentPhone = prompt('Parent/Guardian Phone Number (must start with 0 and be 11 digits, optional):', '');
+        let parentPhone = prompt('Parent/Guardian Phone Number (must start with 0):', '');
         
         if (parentPhone === null) {
-            // User cancelled - treat as empty and continue
             memberData.ParentPhone = '';
             parentPhoneValid = true;
             continue;
@@ -183,7 +202,6 @@ function promptAddNewMember(name) {
         
         parentPhone = parentPhone.trim();
         if (!parentPhone) {
-            // Empty is okay for optional field
             memberData.ParentPhone = '';
             parentPhoneValid = true;
             continue;
@@ -191,41 +209,19 @@ function promptAddNewMember(name) {
         
         if (!isValidPhone(parentPhone)) {
             alert('Parent phone must start with 0 and be exactly 11 digits.');
-            continue; // Ask again
+            continue;
         }
         
         memberData.ParentPhone = parentPhone;
         parentPhoneValid = true;
     }
 
-    // === STEP 3: GENDER ===
-    let genderValid = false;
-    while (!genderValid) {
-        let gender = prompt(`Select Gender for ${name}:\n\n1. Male\n2. Female\n\nEnter 1 or 2:`, '');
-        
-        if (gender === null) {
-            // User cancelled the entire process
-            return;
-        }
-        
-        if (gender === '1') {
-            memberData.Gender = 'Male';
-            genderValid = true;
-        } else if (gender === '2') {
-            memberData.Gender = 'Female';
-            genderValid = true;
-        } else {
-            alert('Invalid choice. Please enter 1 for Male or 2 for Female.');
-        }
-    }
-
-    // === STEP 4: EMAIL (with better error handling) ===
+    // === STEP 4: EMAIL ===
     let emailValid = false;
     while (!emailValid) {
-        let email = prompt('Email (must be @gmail.com, @yahoo.com, or @outlook.com, optional):', '');
+        let email = prompt('Email:', '');
         
         if (email === null) {
-            // User wants to skip email - that's okay
             memberData.Email = '';
             emailValid = true;
             continue;
@@ -233,21 +229,19 @@ function promptAddNewMember(name) {
         
         email = email.trim();
         if (!email) {
-            // Empty is okay
             memberData.Email = '';
             emailValid = true;
             continue;
         }
         
         if (!isValidEmail(email)) {
-            // IMPROVED: Show clear error message with acceptable domains
             const errorMsg = 'Invalid email. Please provide a valid email address ending with:\n' +
                            '- @gmail.com\n' +
                            '- @yahoo.com\n' +
                            '- @outlook.com\n\n' +
                            'Or leave it empty by clicking OK without typing anything.';
             alert(errorMsg);
-            continue; // Ask again without aborting entire process
+            continue;
         }
         
         memberData.Email = email;
@@ -257,7 +251,6 @@ function promptAddNewMember(name) {
     // === STEP 5: ADDRESS ===
     let address = prompt('Address (optional):', '');
     if (address === null) {
-        // User wants to skip address - that's okay
         memberData.Address = '';
     } else {
         memberData.Address = address.trim();
@@ -266,25 +259,6 @@ function promptAddNewMember(name) {
     // === FINAL: Send data to backend ===
     addNewMember(memberData);
 }
-// ==================== MARK ATTENDANCE ====================
-async function markMemberAttendance(name, phone) {
-    const result = await callBackend('markAttendance', {
-        memberName: name,
-        memberPhone: phone
-    });
-
-    if (result.error) {
-        alert(`Error: ${result.error}`);
-        return;
-    }
-
-    showSuccessModal(`${name} has been checked in for today's service.`);
-    
-    searchInput.value = '';
-    searchResults.innerHTML = '';
-    loadTodaysAttendance();
-}
-
 // ==================== TODAY'S ATTENDANCE LOG ====================
 async function loadTodaysAttendance() {
     const result = await callBackend('getTodaysAttendance');
@@ -485,6 +459,7 @@ function showOfferingMessage(message, type) {
         }, 5000);
     }
 }
+
 
 
 
