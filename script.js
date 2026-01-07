@@ -1,6 +1,6 @@
 // === SCRIPT.JS - Frontend Logic for Attendance System ===
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwrRXnt3K5xHkGp867nWigO3MWovrGlIg5g8GvYIzB1cONancKtWxJ5wRlOqTDPS03C/exec"; 
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwpYvYtIuGqf7V7S9VK_yeKQ6iS0K7M0KXObKfxRuG9_TohJcyUsPng2Mbzu4RXDFrX/exec"; 
 
 // DOM Elements
 const searchInput = document.getElementById('searchInput');
@@ -485,6 +485,7 @@ function showOfferingMessage(message, type) {
         }, 5000);
     }
 }
+
 
 
 
