@@ -126,111 +126,146 @@ function displaySearchResults(members, originalQuery) {
 }
 // ==================== ADD NEW MEMBER ====================
 function promptAddNewMember(name) {
-    // Store the name for use in the modal
-    window.pendingNewMember = { name: name };
-    
-    // Set the name in the modal
-    pendingMemberName.textContent = name;
-    
-    // Show the gender modal
-    genderModal.style.display = 'flex';
-}
-
-// ==================== GENDER MODAL LOGIC ====================
-// This function continues the process after gender is selected
-function continueAddMember(gender) {
-    // Close the gender modal
-    genderModal.style.display = 'none';
-    
-    // Now continue with the rest of the prompts
-    const name = window.pendingNewMember.name;
-    
-    // Helper function to validate phone (numbers only)
+    // Helper function to validate phone (must start with 0 and be 11 digits)
     function isValidPhone(phone) {
-        return /^\d+$/.test(phone);
+        return /^0\d{10}$/.test(phone); // Starts with 0, then exactly 10 more digits
     }
 
-    // Helper function to validate email (must be @gmail.com)
+    // UPDATED: Accepts multiple email domains
     function isValidEmail(email) {
-        return email === '' || /^[^\s@]+@gmail\.com$/i.test(email);
+        if (email === '') return true; // Empty is okay
+        const emailRegex = /^[^\s@]+@(gmail\.com|yahoo\.com|outlook\.com)$/i;
+        return emailRegex.test(email);
     }
 
-    let phone = prompt(`Add new member: "${name}"\n\nPlease enter their phone number (digits only):`, '');
-    if (phone === null) return; // User cancelled
-
-    phone = phone.trim();
-    if (!phone) {
-        alert('Phone number is required to add a new member.');
-        return;
-    }
-    if (!isValidPhone(phone)) {
-        alert('Invalid phone number. Please use digits only (0-9).');
-        return;
-    }
-
-    // Parent phone (updated version with better cancel handling)
-    let parentPhone = prompt('Parent/Guardian Phone Number:', '');
-    if (parentPhone === null) {
-        parentPhone = ''; // User cancelled optional field -> empty
-    } else {
-        parentPhone = parentPhone.trim();
-        if (parentPhone && !isValidPhone(parentPhone)) {
-            alert('Invalid parent phone number. Please use digits only (0-9).');
-            return;
-        }
-    }
-
-    let email = prompt('Email:', '');
-    if (email !== null) {
-        email = email.trim();
-        if (email && !isValidEmail(email)) {
-            alert('Invalid email. Please provide a valid @gmail.com address or leave it empty.');
-            return;
-        }
-    } else {
-        return;
-    }
-
-    let address = prompt('Address (optional):', '');
-
-    // Call the function that sends data to Google Sheets
-    addNewMember({
+    // Store all member data as we collect it
+    const memberData = {
         Name: name,
-        Phone: phone,
-        ParentPhone: parentPhone || '',
-        Gender: gender, // This now comes from the modal choice
-        Email: email || '',
-        Address: address || '',
         DateJoined: new Date().toISOString().split('T')[0]
-    });
-}
+    };
 
-// Event listeners for gender buttons
-genderButtons.forEach(button => {
-    button.addEventListener('click', function() {
-        const selectedGender = this.getAttribute('data-gender');
-        continueAddMember(selectedGender);
-    });
-});
-
-// Cancel button in gender modal
-cancelGenderBtn.addEventListener('click', function() {
-    genderModal.style.display = 'none';
-    window.pendingNewMember = null; // Clear the pending data
-});
-
-async function addNewMember(memberData) {
-    const result = await callBackend('addMember', memberData);
-
-    if (result.error) {
-        alert(`Error adding member: ${result.error}`);
-        return;
+    // === STEP 1: PHONE NUMBER ===
+    let phoneValid = false;
+    while (!phoneValid) {
+        let phone = prompt(`Add new member: "${name}"\n\nPhone Number (must start with 0 and be 11 digits, e.g., 08012345678):`, '');
+        
+        if (phone === null) {
+            // User cancelled the entire process
+            return;
+        }
+        
+        phone = phone.trim();
+        if (!phone) {
+            alert('Phone number is required to add a new member.');
+            continue; // Ask again
+        }
+        
+        if (!isValidPhone(phone)) {
+            alert('Phone must start with 0 and be exactly 11 digits (e.g., 08012345678).');
+            continue; // Ask again
+        }
+        
+        memberData.Phone = phone;
+        phoneValid = true;
     }
 
-    showSuccessModal(`Added ${memberData.Name} to the community!`);
-    markMemberAttendance(memberData.Name, memberData.Phone);
-}
+    // === STEP 2: PARENT PHONE ===
+    let parentPhoneValid = false;
+    while (!parentPhoneValid) {
+        let parentPhone = prompt('Parent/Guardian Phone Number (must start with 0 and be 11 digits, optional):', '');
+        
+        if (parentPhone === null) {
+            // User cancelled - treat as empty and continue
+            memberData.ParentPhone = '';
+            parentPhoneValid = true;
+            continue;
+        }
+        
+        parentPhone = parentPhone.trim();
+        if (!parentPhone) {
+            // Empty is okay for optional field
+            memberData.ParentPhone = '';
+            parentPhoneValid = true;
+            continue;
+        }
+        
+        if (!isValidPhone(parentPhone)) {
+            alert('Parent phone must start with 0 and be exactly 11 digits.');
+            continue; // Ask again
+        }
+        
+        memberData.ParentPhone = parentPhone;
+        parentPhoneValid = true;
+    }
 
+    // === STEP 3: GENDER ===
+    let genderValid = false;
+    while (!genderValid) {
+        let gender = prompt(`Select Gender for ${name}:\n\n1. Male\n2. Female\n\nEnter 1 or 2:`, '');
+        
+        if (gender === null) {
+            // User cancelled the entire process
+            return;
+        }
+        
+        if (gender === '1') {
+            memberData.Gender = 'Male';
+            genderValid = true;
+        } else if (gender === '2') {
+            memberData.Gender = 'Female';
+            genderValid = true;
+        } else {
+            alert('Invalid choice. Please enter 1 for Male or 2 for Female.');
+        }
+    }
+
+    // === STEP 4: EMAIL (with better error handling) ===
+    let emailValid = false;
+    while (!emailValid) {
+        let email = prompt('Email (must be @gmail.com, @yahoo.com, or @outlook.com, optional):', '');
+        
+        if (email === null) {
+            // User wants to skip email - that's okay
+            memberData.Email = '';
+            emailValid = true;
+            continue;
+        }
+        
+        email = email.trim();
+        if (!email) {
+            // Empty is okay
+            memberData.Email = '';
+            emailValid = true;
+            continue;
+        }
+        
+        if (!isValidEmail(email)) {
+            // IMPROVED: Show clear error message with acceptable domains
+            const errorMsg = 'Invalid email. Please provide a valid email address ending with:\n' +
+                           '- @gmail.com\n' +
+                           '- @yahoo.com\n' +
+                           '- @outlook.com\n\n' +
+                           'Or leave it empty by clicking OK without typing anything.';
+            alert(errorMsg);
+            continue; // Ask again without aborting entire process
+        }
+        
+        memberData.Email = email;
+        emailValid = true;
+    }
+
+    // === STEP 5: ADDRESS ===
+    let address = prompt('Address (optional):', '');
+    if (address === null) {
+        // User wants to skip address - that's okay
+        memberData.Address = '';
+    } else {
+        memberData.Address = address.trim();
+    }
+
+    // === FINAL: Send data to backend ===
+    addNewMember(memberData);
+}
 // ==================== MARK ATTENDANCE ====================
 async function markMemberAttendance(name, phone) {
     const result = await callBackend('markAttendance', {
@@ -332,6 +367,7 @@ setCurrentDate();
 loadTodaysAttendance();
 
 searchInput.focus();
+
 
 
 
