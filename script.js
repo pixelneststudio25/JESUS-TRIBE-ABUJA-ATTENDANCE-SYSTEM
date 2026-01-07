@@ -365,8 +365,127 @@ window.addEventListener('click', (event) => {
 
 setCurrentDate();
 loadTodaysAttendance();
+loadTodaysOfferings();
 
 searchInput.focus();
+
+// ==================== OFFERING FUNCTIONALITY ====================
+
+// DOM Elements for offering
+const offeringAmount = document.getElementById('offeringAmount');
+const recordOfferingBtn = document.getElementById('recordOffering');
+const offeringMessage = document.getElementById('offeringMessage');
+const offeringList = document.getElementById('offeringList');
+
+// Record offering
+recordOfferingBtn.addEventListener('click', async () => {
+    const amount = offeringAmount.value.trim();
+    
+    if (!amount || parseFloat(amount) <= 0) {
+        showOfferingMessage('Please enter a valid amount.', 'error');
+        return;
+    }
+    
+    // Show loading
+    recordOfferingBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recording...';
+    recordOfferingBtn.disabled = true;
+    
+    const result = await callBackend('recordOffering', { amount: amount });
+    
+    if (result.error) {
+        showOfferingMessage('Error: ' + result.error, 'error');
+    } else {
+        showOfferingMessage(result.message, 'success');
+        offeringAmount.value = '';
+        loadTodaysOfferings(); // Refresh the list
+    }
+    
+    // Reset button
+    recordOfferingBtn.innerHTML = '<i class="fas fa-save"></i> Record Offering';
+    recordOfferingBtn.disabled = false;
+});
+
+// Load today's offerings
+async function loadTodaysOfferings() {
+    const result = await callBackend('getTodaysOfferings');
+    
+    if (result.error) {
+        offeringList.innerHTML = `<div class="offering-error">Error loading offerings: ${result.error}</div>`;
+        return;
+    }
+    
+    displayTodaysOfferings(result);
+}
+
+function displayTodaysOfferings(offerings) {
+    if (offerings.length === 0) {
+        offeringList.innerHTML = `
+            <div class="no-offering">
+                <i class="fas fa-hand-holding-usd"></i>
+                <p>No offerings recorded for today.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    let total = 0;
+    
+    offerings.forEach(offering => {
+        const amount = offering.Amount || offering.amount;
+        const recordedBy = offering.RecordedBy || offering.recordedBy;
+        const time = new Date(offering.Timestamp || offering.timestamp);
+        const timeString = time.toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        
+        total += parseFloat(amount);
+        
+        html += `
+            <div class="offering-item">
+                <div>
+                    <div>Recorded by: ${recordedBy}</div>
+                    <div class="offering-time">${timeString}</div>
+                </div>
+                <div class="offering-amount">₦${parseFloat(amount).toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                })}</div>
+            </div>
+        `;
+    });
+    
+    // Add total at the bottom
+    html += `
+        <div class="offering-item" style="border-top: 2px solid #FF6600; margin-top: 10px;">
+            <div style="font-weight: 600;">TOTAL OFFERING</div>
+            <div class="offering-amount" style="font-size: 1.4rem;">
+                ₦${total.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                })}
+            </div>
+        </div>
+    `;
+    
+    offeringList.innerHTML = html;
+}
+
+function showOfferingMessage(message, type) {
+    offeringMessage.textContent = message;
+    offeringMessage.className = 'offering-message';
+    offeringMessage.classList.add(`offering-${type}`);
+    
+    // Auto-hide success messages after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => {
+            offeringMessage.textContent = '';
+            offeringMessage.className = 'offering-message';
+        }, 5000);
+    }
+}
+
 
 
 
