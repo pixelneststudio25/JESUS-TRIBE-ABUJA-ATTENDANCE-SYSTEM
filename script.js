@@ -17,6 +17,18 @@ const pendingMemberName = document.getElementById('pendingMemberName');
 const genderButtons = document.querySelectorAll('.gender-btn');
 const cancelGenderBtn = document.getElementById('cancelGender');
 
+// Validation functions (need to be accessible globally)
+function isValidPhone(phone) {
+    if (!phone) return true; // Empty is okay
+    return /^0\d{10}$/.test(phone); // Starts with 0, then exactly 10 more digits
+}
+
+function isValidEmail(email) {
+    if (email === '') return true; // Empty is okay
+    const emailRegex = /^[^\s@]+@(gmail\.com|yahoo\.com|outlook\.com)$/i;
+    return emailRegex.test(email);
+}
+
 // Set today's date in the header
 function setCurrentDate() {
     const now = new Date();
@@ -83,7 +95,7 @@ function displaySearchResults(members, originalQuery) {
     if (members.length === 0) {
         // No members found - show "Add New" option
         searchResults.innerHTML = `
-            <div class="add-member-item" onclick="promptAddNewMember('${originalQuery}')">
+            <div class="add-member-item" onclick="promptAddNewMember('${originalQuery.replace(/'/g, "\\'")}')">
                 <i class="fas fa-user-plus"></i>
                 Add "${originalQuery}" as a new member
             </div>
@@ -107,6 +119,7 @@ function displaySearchResults(members, originalQuery) {
 
         // Escape single quotes in the name for the onclick attribute
         const escapedName = memberName.replace(/'/g, "\\'");
+        const escapedPhone = (memberPhone || '').replace(/'/g, "\\'");
         
         html += `
             <div class="member-item">
@@ -116,7 +129,7 @@ function displaySearchResults(members, originalQuery) {
                     ${genderDisplay}
                     ${emailDisplay}
                 </div>
-                <button class="btn-attend" onclick="markMemberAttendance('${escapedName}', '${memberPhone}')">
+                <button class="btn-attend" onclick="markMemberAttendance('${escapedName}', '${escapedPhone}')">
                     <i class="fas fa-check-circle"></i> Present
                 </button>
             </div>
@@ -124,28 +137,34 @@ function displaySearchResults(members, originalQuery) {
     });
     searchResults.innerHTML = html;
 }
+
+// ==================== MARK ATTENDANCE FUNCTION ====================
+async function markMemberAttendance(memberName, memberPhone) {
+    const result = await callBackend('markAttendance', {
+        memberName: memberName,
+        memberPhone: memberPhone
+    });
+
+    if (result.error) {
+        showError(result.error);
+    } else {
+        showSuccessModal(`Attendance marked for ${memberName}`);
+        loadTodaysAttendance(); // Refresh the attendance log
+        searchInput.value = ''; // Clear search
+        searchResults.innerHTML = ''; // Clear results
+        searchInput.focus(); // Refocus on search
+    }
+}
+
 // ==================== ADD NEW MEMBER ====================
 function promptAddNewMember(name) {
-    // Helper function to validate phone (must start with 0 and be 11 digits)
-    function isValidPhone(phone) {
-        return /^0\d{10}$/.test(phone); // Starts with 0, then exactly 10 more digits
-    }
-
-    // Accepts multiple email domains
-    function isValidEmail(email) {
-        if (email === '') return true; // Empty is okay
-        const emailRegex = /^[^\s@]+@(gmail\.com|yahoo\.com|outlook\.com)$/i;
-        return emailRegex.test(email);
-    }
-
     // Store all member data
     const memberData = {
         Name: name,
         DateJoined: new Date().toISOString().split('T')[0]
     };
 
-    // === STEP 1: SHOW GENDER DROPDOWN MODAL ===
-    // This uses the dropdown modal you created earlier
+    // Show gender modal
     window.pendingNewMember = { name: name, data: memberData };
     pendingMemberName.textContent = name;
     genderModal.style.display = 'flex';
@@ -156,11 +175,22 @@ function continueAddMember(gender) {
     // Close the gender modal
     genderModal.style.display = 'none';
     
+    if (!window.pendingNewMember) {
+        console.error('No pending member data found');
+        return;
+    }
+    
     const name = window.pendingNewMember.name;
     const memberData = window.pendingNewMember.data;
     memberData.Gender = gender;
     
-        // === STEP 2: PHONE NUMBER  ===
+    // Collect additional information
+    collectMemberInfo(memberData, name);
+}
+
+// ==================== COLLECT MEMBER INFORMATION ====================
+async function collectMemberInfo(memberData, name) {
+    // === PHONE NUMBER ===
     let phoneValid = false;
     while (!phoneValid) {
         let phone = prompt(`Add new member: "${name}"\n\nPhone Number (must start with 0, Optional):`, '');
@@ -176,23 +206,19 @@ function continueAddMember(gender) {
         if (!phone) {
             memberData.Phone = ''; // Store as empty string
             phoneValid = true;
-            continue; // Move to next step
-        }
-        
-        // If they DID enter something, validate it
-        if (!isValidPhone(phone)) {
-            alert('If providing a phone, it must start with 0.');
+        } else if (!isValidPhone(phone)) {
+            alert('If providing a phone, it must start with 0 and be exactly 11 digits (e.g., 08012345678).');
             continue; // Ask again
+        } else {
+            memberData.Phone = phone;
+            phoneValid = true;
         }
-        
-        memberData.Phone = phone;
-        phoneValid = true;
     }
 
-    // === STEP 3: PARENT PHONE ===
+    // === PARENT PHONE ===
     let parentPhoneValid = false;
     while (!parentPhoneValid) {
-        let parentPhone = prompt('Parent/Guardian Phone Number (must start with 0):', '');
+        let parentPhone = prompt('Parent/Guardian Phone Number (must start with 0, Optional):', '');
         
         if (parentPhone === null) {
             memberData.ParentPhone = '';
@@ -208,7 +234,7 @@ function continueAddMember(gender) {
         }
         
         if (!isValidPhone(parentPhone)) {
-            alert('Parent phone must start with 0 and be exactly 11 digits.');
+            alert('Parent phone must start with 0 and be exactly 11 digits (e.g., 08012345678).');
             continue;
         }
         
@@ -216,10 +242,10 @@ function continueAddMember(gender) {
         parentPhoneValid = true;
     }
 
-    // === STEP 4: EMAIL ===
+    // === EMAIL ===
     let emailValid = false;
     while (!emailValid) {
-        let email = prompt('Email:', '');
+        let email = prompt('Email (Optional):', '');
         
         if (email === null) {
             memberData.Email = '';
@@ -248,7 +274,7 @@ function continueAddMember(gender) {
         emailValid = true;
     }
 
-    // === STEP 5: ADDRESS ===
+    // === ADDRESS ===
     let address = prompt('Address (optional):', '');
     if (address === null) {
         memberData.Address = '';
@@ -257,8 +283,22 @@ function continueAddMember(gender) {
     }
 
     // === FINAL: Send data to backend ===
-    addNewMember(memberData);
+    await addNewMember(memberData);
 }
+
+// ==================== ADD NEW MEMBER TO BACKEND ====================
+async function addNewMember(memberData) {
+    const result = await callBackend('addNewMember', memberData);
+    
+    if (result.error) {
+        showError(`Failed to add member: ${result.error}`);
+    } else {
+        showSuccessModal(`Successfully added ${memberData.Name} as a new member!`);
+        // Automatically mark attendance for the new member
+        markMemberAttendance(memberData.Name, memberData.Phone || '');
+    }
+}
+
 // ==================== TODAY'S ATTENDANCE LOG ====================
 async function loadTodaysAttendance() {
     const result = await callBackend('getTodaysAttendance');
@@ -273,7 +313,7 @@ async function loadTodaysAttendance() {
 }
 
 function displayTodaysAttendance(records) {
-    if (records.length === 0) {
+    if (!records || records.length === 0) {
         attendanceLog.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-clipboard-check"></i>
@@ -302,7 +342,7 @@ function displayTodaysAttendance(records) {
 
         html += `
             <div class="attendance-item">
-                <div class="attendance-name">${record.MemberName}</div>
+                <div class="attendance-name">${record.MemberName || 'Unknown'}</div>
                 <div class="attendance-time">
                     <i class="far fa-clock"></i> ${timeString}
                 </div>
@@ -323,25 +363,6 @@ function showSuccessModal(message) {
 function showError(message) {
     alert(`Error: ${message}`);
 }
-
-// ==================== INITIALIZE ====================
-closeModal.addEventListener('click', () => {
-    successModal.style.display = 'none';
-});
-
-refreshBtn.addEventListener('click', loadTodaysAttendance);
-
-window.addEventListener('click', (event) => {
-    if (event.target === successModal) {
-        successModal.style.display = 'none';
-    }
-});
-
-setCurrentDate();
-loadTodaysAttendance();
-loadTodaysOfferings();
-
-searchInput.focus();
 
 // ==================== OFFERING FUNCTIONALITY ====================
 
@@ -392,7 +413,7 @@ async function loadTodaysOfferings() {
 }
 
 function displayTodaysOfferings(offerings) {
-    if (offerings.length === 0) {
+    if (!offerings || offerings.length === 0) {
         offeringList.innerHTML = `
             <div class="no-offering">
                 <i class="fas fa-hand-holding-usd"></i>
@@ -406,13 +427,20 @@ function displayTodaysOfferings(offerings) {
     let total = 0;
     
     offerings.forEach(offering => {
-        const amount = offering.Amount || offering.amount;
-        const recordedBy = offering.RecordedBy || offering.recordedBy;
-        const time = new Date(offering.Timestamp || offering.timestamp);
-        const timeString = time.toLocaleTimeString([], { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
+        const amount = offering.Amount || offering.amount || 0;
+        const recordedBy = offering.RecordedBy || offering.recordedBy || 'Unknown';
+        const time = offering.Timestamp || offering.timestamp;
+        let timeString = '--:--';
+        
+        if (time) {
+            const timeMatch = time.toString().match(/(\d{1,2}:\d{2}:\d{2})/);
+            if (timeMatch) {
+                const [hours, minutes] = timeMatch[1].split(':');
+                const hour = parseInt(hours) % 12 || 12;
+                const ampm = parseInt(hours) >= 12 ? 'PM' : 'AM';
+                timeString = `${hour}:${minutes} ${ampm}`;
+            }
+        }
         
         total += parseFloat(amount);
         
@@ -460,51 +488,54 @@ function showOfferingMessage(message, type) {
     }
 }
 
-// ==================== GENDER MODAL SETUP ====================
-// Wait for the page to fully load before setting up event listeners
+// ==================== INITIALIZE ====================
 document.addEventListener('DOMContentLoaded', function() {
-    // Get elements
-    const genderModal = document.getElementById('genderModal');
-    const pendingMemberName = document.getElementById('pendingMemberName');
-    const cancelGenderBtn = document.getElementById('cancelGender');
-    
-    if (!genderModal || !pendingMemberName || !cancelGenderBtn) {
-        console.error('ERROR: Could not find gender modal elements!');
-        return;
+    // Set up modal close events
+    if (closeModal) {
+        closeModal.addEventListener('click', () => {
+            successModal.style.display = 'none';
+        });
     }
     
-    // Use event delegation for gender buttons (works even if buttons are added later)
-    genderModal.addEventListener('click', function(event) {
-        const clickedButton = event.target.closest('.gender-btn');
-        if (clickedButton) {
-            const selectedGender = clickedButton.getAttribute('data-gender');
-            console.log('Gender selected:', selectedGender);
-            continueAddMember(selectedGender);
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', loadTodaysAttendance);
+    }
+    
+    // Close modals when clicking outside
+    window.addEventListener('click', (event) => {
+        if (event.target === successModal) {
+            successModal.style.display = 'none';
         }
-    });
-    
-    // Cancel button
-    cancelGenderBtn.addEventListener('click', function() {
-        genderModal.style.display = 'none';
-        window.pendingNewMember = null;
-    });
-    
-    // Close modal when clicking outside
-    genderModal.addEventListener('click', function(event) {
         if (event.target === genderModal) {
             genderModal.style.display = 'none';
             window.pendingNewMember = null;
         }
     });
     
-    console.log('Gender modal setup complete');
+    // Set up gender modal buttons
+    if (genderModal) {
+        genderModal.addEventListener('click', function(event) {
+            const clickedButton = event.target.closest('.gender-btn');
+            if (clickedButton) {
+                const selectedGender = clickedButton.getAttribute('data-gender');
+                continueAddMember(selectedGender);
+            }
+        });
+    }
+    
+    if (cancelGenderBtn) {
+        cancelGenderBtn.addEventListener('click', function() {
+            genderModal.style.display = 'none';
+            window.pendingNewMember = null;
+        });
+    }
+    
+    // Initialize page
+    setCurrentDate();
+    loadTodaysAttendance();
+    loadTodaysOfferings();
+    
+    if (searchInput) {
+        searchInput.focus();
+    }
 });
-
-
-
-
-
-
-
-
-
