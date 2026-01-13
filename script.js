@@ -379,7 +379,7 @@ function displayTodaysAttendance(records, serviceFilter = 'All') {
         
         filteredCount++;
         
-        let timeString = '--:--';
+        let timeString = '  ';
         const timestampStr = record.Timestamp || '';
         
         const timeMatch = timestampStr.match(/(\d{1,2}:\d{2}:\d{2})/);
@@ -399,9 +399,6 @@ function displayTodaysAttendance(records, serviceFilter = 'All') {
             <div class="attendance-item">
                 <div class="attendance-info">
                     <div class="attendance-name">${record.MemberName || record.memberName || 'Unknown'} ${serviceBadge}</div>
-                    <div class="attendance-time">
-                        <i class="far fa-clock"></i> ${timeString}
-                    </div>
                 </div>
             </div>
         `;
@@ -638,4 +635,5 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('Attendance System Initialized Successfully');
+
 });
