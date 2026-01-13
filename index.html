@@ -28,6 +28,15 @@
                     <div class="search-hint">Results will appear below as you type.</div>
                 </div>
                 
+                <!-- Service Selection Dropdown -->
+                <div class="service-selection">
+                    <label for="serviceSelect"><i class="fas fa-church"></i> Service:</label>
+                    <select id="serviceSelect">
+                        <option value="First Service">First Service</option>
+                        <option value="Second Service">Second Service</option>
+                    </select>
+                </div>
+                
                 <!-- DYNAMIC SEARCH RESULTS -->
                 <div id="searchResults" class="search-results">
                     <!-- Member results and "Add New" option will appear here -->
@@ -40,6 +49,17 @@
                     <h2><i class="fas fa-clipboard-list"></i> Today's Attendance</h2>
                     <button class="btn-icon" id="refreshBtn" title="Refresh List"><i class="fas fa-sync-alt"></i></button>
                 </div>
+                
+                <!-- Attendance Filter Dropdown -->
+                <div class="attendance-filter">
+                    <label for="attendanceFilter"><i class="fas fa-filter"></i> View Service:</label>
+                    <select id="attendanceFilter">
+                        <option value="All">All Services</option>
+                        <option value="First Service">First Service</option>
+                        <option value="Second Service">Second Service</option>
+                    </select>
+                </div>
+                
                 <div id="attendanceLog" class="attendance-log">
                     <div class="empty-state">
                         <i class="fas fa-clipboard-check"></i>
@@ -119,7 +139,4 @@
     <!-- JavaScript File -->
     <script src="script.js"></script>
 </body>
-
 </html>
-
-
