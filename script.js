@@ -1,6 +1,6 @@
 // === SCRIPT.JS - Frontend Logic for Attendance System ===
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwpYvYtIuGqf7V7S9VK_yeKQ6iS0K7M0KXObKfxRuG9_TohJcyUsPng2Mbzu4RXDFrX/exec"; 
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxjKsdhMZqP7bb13BFVsetAtyPycmuWhzmMJiMxq4KEPp24vNghmBi1RdiCniv8zPJk/exec"; 
 
 // DOM Elements
 const searchInput = document.getElementById('searchInput');
@@ -38,16 +38,29 @@ function setCurrentDate() {
 
 // ==================== COMMUNICATE WITH GOOGLE APPS SCRIPT ====================
 async function callBackend(action, data = {}) {
-    const formData = new FormData();
-    formData.append('action', action);
-    formData.append('data', JSON.stringify(data));
-
     try {
+        // Create URL-encoded form data
+        const params = new URLSearchParams();
+        params.append('action', action);
+        params.append('data', JSON.stringify(data));
+
         const response = await fetch(WEB_APP_URL, {
             method: 'POST',
-            body: formData
+            body: params,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
         });
-        const result = await response.json();
+        
+        const text = await response.text();
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error('Failed to parse JSON:', text);
+            throw new Error('Invalid response from server');
+        }
+        
         return result;
     } catch (error) {
         console.error('Error calling backend:', error);
@@ -95,7 +108,7 @@ function displaySearchResults(members, originalQuery) {
     if (members.length === 0) {
         // No members found - show "Add New" option
         searchResults.innerHTML = `
-            <div class="add-member-item" onclick="promptAddNewMember('${originalQuery.replace(/'/g, "\\'")}')">
+            <div class="add-member-item" onclick="promptAddNewMember('${originalQuery}')">
                 <i class="fas fa-user-plus"></i>
                 Add "${originalQuery}" as a new member
             </div>
@@ -110,7 +123,7 @@ function displaySearchResults(members, originalQuery) {
         const memberName = member.NAME || '';
         const memberPhone = member['PHONE NUMBER'] || '';
         const memberGender = member.GENDER || '';
-        const memberEmail = member['EMAIL '] || ''; 
+        const memberEmail = member['EMAIL '] || ''; // Note the space after EMAIL
         
         // Create display elements only if data exists
         const phoneDisplay = memberPhone ? `<div class="member-phone"><i class="fas fa-phone"></i> ${memberPhone}</div>` : '';
@@ -119,7 +132,6 @@ function displaySearchResults(members, originalQuery) {
 
         // Escape single quotes in the name for the onclick attribute
         const escapedName = memberName.replace(/'/g, "\\'");
-        const escapedPhone = (memberPhone || '').replace(/'/g, "\\'");
         
         html += `
             <div class="member-item">
@@ -129,7 +141,7 @@ function displaySearchResults(members, originalQuery) {
                     ${genderDisplay}
                     ${emailDisplay}
                 </div>
-                <button class="btn-attend" onclick="markMemberAttendance('${escapedName}', '${escapedPhone}')">
+                <button class="btn-attend" onclick="markMemberAttendance('${escapedName}', '${memberPhone}')">
                     <i class="fas fa-check-circle"></i> Present
                 </button>
             </div>
@@ -140,19 +152,27 @@ function displaySearchResults(members, originalQuery) {
 
 // ==================== MARK ATTENDANCE FUNCTION ====================
 async function markMemberAttendance(memberName, memberPhone) {
+    // Get selected service
+    const serviceSelect = document.getElementById('serviceSelect');
+    const service = serviceSelect ? serviceSelect.value : 'First Service';
+    
     const result = await callBackend('markAttendance', {
         memberName: memberName,
-        memberPhone: memberPhone
+        memberPhone: memberPhone,
+        service: service  // Add service parameter
     });
 
     if (result.error) {
         showError(result.error);
     } else {
-        showSuccessModal(`Attendance marked for ${memberName}`);
-        loadTodaysAttendance(); // Refresh the attendance log
-        searchInput.value = ''; // Clear search
-        searchResults.innerHTML = ''; // Clear results
-        searchInput.focus(); // Refocus on search
+        showSuccessModal(`Attendance marked for ${memberName} (${service})`);
+        // Refresh attendance log for current filter
+        const attendanceFilter = document.getElementById('attendanceFilter');
+        const currentFilter = attendanceFilter ? attendanceFilter.value : 'All';
+        loadTodaysAttendance(currentFilter);
+        searchInput.value = '';
+        searchResults.innerHTML = '';
+        searchInput.focus();
     }
 }
 
@@ -177,6 +197,7 @@ function continueAddMember(gender) {
     
     if (!window.pendingNewMember) {
         console.error('No pending member data found');
+        showError('No member data found. Please try again.');
         return;
     }
     
@@ -184,16 +205,26 @@ function continueAddMember(gender) {
     const memberData = window.pendingNewMember.data;
     memberData.Gender = gender;
     
+    // Clear the pending member data
+    window.pendingNewMember = null;
+    
     // Collect additional information
     collectMemberInfo(memberData, name);
 }
 
 // ==================== COLLECT MEMBER INFORMATION ====================
 async function collectMemberInfo(memberData, name) {
+    // Helper function to show a custom prompt
+    function customPrompt(message, defaultValue = '') {
+        return prompt(message, defaultValue);
+    }
+    
     // === PHONE NUMBER ===
     let phoneValid = false;
-    while (!phoneValid) {
-        let phone = prompt(`Add new member: "${name}"\n\nPhone Number (must start with 0, Optional):`, '');
+    let phoneAttempts = 0;
+    while (!phoneValid && phoneAttempts < 3) {
+        phoneAttempts++;
+        let phone = customPrompt(`Add new member: "${name}"\n\nPhone Number (must start with 0, 11 digits total, Optional):\n\nLeave empty and click OK to skip.`, '');
         
         if (phone === null) {
             // User cancelled the entire process
@@ -202,23 +233,29 @@ async function collectMemberInfo(memberData, name) {
         
         phone = phone.trim();
         
-        // EMPTY IS NOW OKAY - user can skip by clicking OK without typing
         if (!phone) {
             memberData.Phone = ''; // Store as empty string
             phoneValid = true;
         } else if (!isValidPhone(phone)) {
-            alert('If providing a phone, it must start with 0 and be exactly 11 digits (e.g., 08012345678).');
+            alert('Phone must start with 0 and be exactly 11 digits (e.g., 08012345678).\nPlease try again or leave empty to skip.');
             continue; // Ask again
         } else {
             memberData.Phone = phone;
             phoneValid = true;
         }
     }
+    
+    if (!phoneValid) {
+        alert('Phone input cancelled. Using empty phone number.');
+        memberData.Phone = '';
+    }
 
     // === PARENT PHONE ===
     let parentPhoneValid = false;
-    while (!parentPhoneValid) {
-        let parentPhone = prompt('Parent/Guardian Phone Number (must start with 0, Optional):', '');
+    let parentPhoneAttempts = 0;
+    while (!parentPhoneValid && parentPhoneAttempts < 3) {
+        parentPhoneAttempts++;
+        let parentPhone = customPrompt('Parent/Guardian Phone Number (must start with 0, 11 digits total, Optional):\n\nLeave empty and click OK to skip.', '');
         
         if (parentPhone === null) {
             memberData.ParentPhone = '';
@@ -230,22 +267,26 @@ async function collectMemberInfo(memberData, name) {
         if (!parentPhone) {
             memberData.ParentPhone = '';
             parentPhoneValid = true;
+        } else if (!isValidPhone(parentPhone)) {
+            alert('Parent phone must start with 0 and be exactly 11 digits (e.g., 08012345678).\nPlease try again or leave empty to skip.');
             continue;
+        } else {
+            memberData.ParentPhone = parentPhone;
+            parentPhoneValid = true;
         }
-        
-        if (!isValidPhone(parentPhone)) {
-            alert('Parent phone must start with 0 and be exactly 11 digits (e.g., 08012345678).');
-            continue;
-        }
-        
-        memberData.ParentPhone = parentPhone;
-        parentPhoneValid = true;
+    }
+    
+    if (!parentPhoneValid) {
+        alert('Parent phone input cancelled. Using empty parent phone.');
+        memberData.ParentPhone = '';
     }
 
     // === EMAIL ===
     let emailValid = false;
-    while (!emailValid) {
-        let email = prompt('Email (Optional):', '');
+    let emailAttempts = 0;
+    while (!emailValid && emailAttempts < 3) {
+        emailAttempts++;
+        let email = customPrompt('Email (Optional, must be @gmail.com, @yahoo.com, or @outlook.com):\n\nLeave empty and click OK to skip.', '');
         
         if (email === null) {
             memberData.Email = '';
@@ -257,25 +298,23 @@ async function collectMemberInfo(memberData, name) {
         if (!email) {
             memberData.Email = '';
             emailValid = true;
-            continue;
-        }
-        
-        if (!isValidEmail(email)) {
-            const errorMsg = 'Invalid email. Please provide a valid email address ending with:\n' +
-                           '- @gmail.com\n' +
-                           '- @yahoo.com\n' +
-                           '- @outlook.com\n\n' +
-                           'Or leave it empty by clicking OK without typing anything.';
+        } else if (!isValidEmail(email)) {
+            const errorMsg = 'Invalid email format.\n\nAccepted domains:\n- @gmail.com\n- @yahoo.com\n- @outlook.com\n\nPlease enter a valid email or leave empty to skip.';
             alert(errorMsg);
             continue;
+        } else {
+            memberData.Email = email;
+            emailValid = true;
         }
-        
-        memberData.Email = email;
-        emailValid = true;
+    }
+    
+    if (!emailValid) {
+        alert('Email input cancelled. Using empty email.');
+        memberData.Email = '';
     }
 
     // === ADDRESS ===
-    let address = prompt('Address (optional):', '');
+    let address = customPrompt('Address (optional):\n\nLeave empty and click OK to skip.', '');
     if (address === null) {
         memberData.Address = '';
     } else {
@@ -295,13 +334,17 @@ async function addNewMember(memberData) {
     } else {
         showSuccessModal(`Successfully added ${memberData.Name} as a new member!`);
         // Automatically mark attendance for the new member
-        markMemberAttendance(memberData.Name, memberData.Phone || '');
+        setTimeout(() => {
+            markMemberAttendance(memberData.Name, memberData.Phone || '');
+        }, 1000);
     }
 }
 
 // ==================== TODAY'S ATTENDANCE LOG ====================
-async function loadTodaysAttendance() {
-    const result = await callBackend('getTodaysAttendance');
+async function loadTodaysAttendance(serviceFilter = 'All') {
+    const result = await callBackend('getTodaysAttendance', { 
+        service: serviceFilter 
+    });
 
     if (result.error) {
         attendanceLog.innerHTML = `<div style="color: #e74c3c; text-align: center; padding: 20px;">Error loading attendance: ${result.error}</div>`;
@@ -309,15 +352,15 @@ async function loadTodaysAttendance() {
         return;
     }
 
-    displayTodaysAttendance(result);
+    displayTodaysAttendance(result, serviceFilter);
 }
 
-function displayTodaysAttendance(records) {
+function displayTodaysAttendance(records, serviceFilter = 'All') {
     if (!records || records.length === 0) {
         attendanceLog.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-clipboard-check"></i>
-                <p>No attendance marked yet for today.</p>
+                <p>No attendance marked yet for today${serviceFilter !== 'All' ? ' in ' + serviceFilter : ''}.</p>
             </div>
         `;
         presentCount.textContent = '0';
@@ -325,33 +368,52 @@ function displayTodaysAttendance(records) {
     }
 
     let html = '';
+    let filteredCount = 0;
+    
     records.forEach(record => {
-        // SIMPLER FIX: Extract just the time part if the full timestamp is problematic
+        // Skip if service filter doesn't match (unless it's "All")
+        const recordService = record.Service || record.service;
+        if (serviceFilter !== 'All' && recordService !== serviceFilter) {
+            return;
+        }
+        
+        filteredCount++;
+        
         let timeString = '--:--';
         const timestampStr = record.Timestamp || '';
         
-        // Try to extract HH:MM:SS pattern from the timestamp string
         const timeMatch = timestampStr.match(/(\d{1,2}:\d{2}:\d{2})/);
         if (timeMatch) {
             const [hours, minutes] = timeMatch[1].split(':');
-            // Convert to 12-hour format
             const hour = parseInt(hours) % 12 || 12;
             const ampm = parseInt(hours) >= 12 ? 'PM' : 'AM';
             timeString = `${hour}:${minutes} ${ampm}`;
         }
 
+        // Add service badge if viewing all services
+        const serviceBadge = serviceFilter === 'All' && recordService 
+            ? `<span class="service-badge ${recordService.replace(' ', '-').toLowerCase()}">${recordService}</span>` 
+            : '';
+
         html += `
             <div class="attendance-item">
-                <div class="attendance-name">${record.MemberName || 'Unknown'}</div>
-                <div class="attendance-time">
-                    <i class="far fa-clock"></i> ${timeString}
+                <div class="attendance-info">
+                    <div class="attendance-name">${record.MemberName || record.memberName || 'Unknown'} ${serviceBadge}</div>
+                    <div class="attendance-time">
+                        <i class="far fa-clock"></i> ${timeString}
+                    </div>
                 </div>
             </div>
         `;
     });
 
-    attendanceLog.innerHTML = html;
-    presentCount.textContent = records.length.toString();
+    attendanceLog.innerHTML = html || `
+        <div class="empty-state">
+            <i class="fas fa-clipboard-check"></i>
+            <p>No attendance for ${serviceFilter} yet.</p>
+        </div>
+    `;
+    presentCount.textContent = filteredCount.toString();
 }
 
 // ==================== MODAL CONTROLS ====================
@@ -390,7 +452,7 @@ recordOfferingBtn.addEventListener('click', async () => {
     if (result.error) {
         showOfferingMessage('Error: ' + result.error, 'error');
     } else {
-        showOfferingMessage(result.message, 'success');
+        showOfferingMessage(result.message || 'Offering recorded successfully!', 'success');
         offeringAmount.value = '';
         loadTodaysOfferings(); // Refresh the list
     }
@@ -460,9 +522,9 @@ function displayTodaysOfferings(offerings) {
     
     // Add total at the bottom
     html += `
-        <div class="offering-item" style="border-top: 2px solid #FF6600; margin-top: 10px;">
+        <div class="offering-item total-offering">
             <div style="font-weight: 600;">TOTAL OFFERING</div>
-            <div class="offering-amount" style="font-size: 1.4rem;">
+            <div class="offering-amount total">
                 ₦${total.toLocaleString('en-US', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
@@ -497,8 +559,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Update refresh button to respect service filter
     if (refreshBtn) {
-        refreshBtn.addEventListener('click', loadTodaysAttendance);
+        refreshBtn.addEventListener('click', () => {
+            const attendanceFilter = document.getElementById('attendanceFilter');
+            const currentFilter = attendanceFilter ? attendanceFilter.value : 'All';
+            loadTodaysAttendance(currentFilter);
+        });
     }
     
     // Close modals when clicking outside
@@ -530,6 +597,37 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Service filter change listener
+    const attendanceFilter = document.getElementById('attendanceFilter');
+    if (attendanceFilter) {
+        attendanceFilter.addEventListener('change', function() {
+            loadTodaysAttendance(this.value);
+        });
+    }
+    
+    // Add service badge styles dynamically
+    const style = document.createElement('style');
+    style.textContent = `
+        .service-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .service-badge.first-service {
+            background-color: #3498db;
+            color: white;
+        }
+        .service-badge.second-service {
+            background-color: #9b59b6;
+            color: white;
+        }
+    `;
+    document.head.appendChild(style);
+    
     // Initialize page
     setCurrentDate();
     loadTodaysAttendance();
@@ -538,4 +636,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (searchInput) {
         searchInput.focus();
     }
+    
+    console.log('Attendance System Initialized Successfully');
 });
