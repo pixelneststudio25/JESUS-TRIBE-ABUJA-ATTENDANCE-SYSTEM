@@ -150,10 +150,21 @@ function getMemberProperty(member, possibleKeys) {
 }
 
 function displaySearchResults(members, originalQuery) {
-    console.log('Members data:', members); // Debug log
+    console.log('Members data received:', members);
     
+    // Debug: Check the structure of the first member if it exists
+    if (members && members.length > 0) {
+        console.log('First member object:', members[0]);
+        console.log('All keys in first member:', Object.keys(members[0]));
+        
+        // Log each key-value pair
+        for (let key in members[0]) {
+            console.log(`Key: "${key}" = "${members[0][key]}"`);
+        }
+    }
+
     if (!members || members.length === 0) {
-        // No members found - show "Add New" option
+        console.log('No members found in search results');
         const escapedName = originalQuery.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         searchResults.innerHTML = `
             <div class="add-member-item" onclick="promptAddNewMember('${escapedName}')">
@@ -166,16 +177,37 @@ function displaySearchResults(members, originalQuery) {
 
     // Display found members
     let html = '';
-    members.forEach(member => {
-        // Use helper function to safely get member properties
-        const memberName = getMemberProperty(member, ['NAME', 'name', 'Name']);
-        const memberPhone = getMemberProperty(member, ['PHONE NUMBER', 'PHONE_NUMBER', 'phone', 'Phone']);
-        const memberGender = getMemberProperty(member, ['GENDER', 'gender', 'Gender']);
-        const memberEmail = getMemberProperty(member, ['EMAIL', 'EMAIL ', 'email', 'Email']);
-        const memberDOB = getMemberProperty(member, ['DATE OF BIRTH', 'DATE_OF_BIRTH', 'DOB', 'dob', 'Dob']);
+    let foundMembers = 0;
+    
+    members.forEach((member, index) => {
+        console.log(`\n=== Processing member ${index} ===`);
+        console.log('Full member object:', member);
         
-        console.log('Member:', memberName, memberPhone, memberGender, memberEmail, memberDOB); // Debug log
+        // DIRECT APPROACH: Check for MemberName specifically
+        let memberName = '';
+        if (member.MemberName !== undefined && member.MemberName !== null && member.MemberName !== '') {
+            memberName = String(member.MemberName);
+            console.log(`Found MemberName directly: "${memberName}"`);
+        } else {
+            // Fallback to other possible keys
+            memberName = extractMemberName(member);
+        }
         
+        const memberPhone = member['Phone Number'] || member.Phone || member.phone || member.PHONE || '';
+        const memberGender = member.Gender || member.gender || member.GENDER || '';
+        const memberEmail = member.Email || member.email || member.EMAIL || member['EMAIL '] || '';
+        const memberDOB = member['Date of Birth'] || member.DOB || member.dob || member['DATE OF BIRTH'] || '';
+
+        console.log(`Extracted values - Name: "${memberName}", Phone: "${memberPhone}"`);
+
+        // Only display if we found a name
+        if (!memberName || memberName.trim() === '') {
+            console.log(`Skipping member ${index} - no name found`);
+            return; // Skip this member
+        }
+        
+        foundMembers++;
+
         // Create display elements only if data exists
         const phoneDisplay = memberPhone ? `<div class="member-phone"><i class="fas fa-phone"></i> ${memberPhone}</div>` : '';
         const emailDisplay = memberEmail ? `<div class="member-email"><i class="fas fa-envelope"></i> ${memberEmail}</div>` : '';
@@ -185,11 +217,11 @@ function displaySearchResults(members, originalQuery) {
         // Escape special characters for the onclick attribute
         const escapedName = memberName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const escapedPhone = (memberPhone || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        
+
         html += `
             <div class="member-item">
                 <div class="member-info">
-                    <div class="member-name">${memberName || 'Unknown'}</div>
+                    <div class="member-name">${memberName}</div>
                     ${phoneDisplay}
                     ${genderDisplay}
                     ${emailDisplay}
@@ -201,15 +233,23 @@ function displaySearchResults(members, originalQuery) {
             </div>
         `;
     });
-    searchResults.innerHTML = html;
     
-    if (html === '') {
+    console.log(`\n=== Summary ===`);
+    console.log(`Total members returned: ${members.length}`);
+    console.log(`Members displayed: ${foundMembers}`);
+    
+    searchResults.innerHTML = html;
+
+    if (html === '' || foundMembers === 0) {
+        console.log('No valid members to display, showing "Add New" option');
         searchResults.innerHTML = `
             <div class="add-member-item" onclick="promptAddNewMember('${originalQuery.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')">
                 <i class="fas fa-user-plus"></i>
                 Add "${originalQuery}" as a new member
             </div>
         `;
+    } else {
+        console.log('Successfully displayed members');
     }
 }
 
