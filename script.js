@@ -129,6 +129,7 @@ async function performSearch(query) {
     `;
 
     const result = await callBackend('search', { searchTerm: query });
+    console.log('Search Results:', result); // Debug log
 
     if (result.error) {
         searchResults.innerHTML = `<div class="member-item" style="color: #e74c3c;">Error: ${result.error}</div>`;
@@ -138,8 +139,20 @@ async function performSearch(query) {
     displaySearchResults(result, query);
 }
 
+// Helper function to get member property safely
+function getMemberProperty(member, possibleKeys) {
+    for (let key of possibleKeys) {
+        if (member[key] !== undefined && member[key] !== null && member[key] !== '') {
+            return member[key];
+        }
+    }
+    return '';
+}
+
 function displaySearchResults(members, originalQuery) {
-    if (members.length === 0) {
+    console.log('Members data:', members); // Debug log
+    
+    if (!members || members.length === 0) {
         // No members found - show "Add New" option
         const escapedName = originalQuery.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         searchResults.innerHTML = `
@@ -154,11 +167,14 @@ function displaySearchResults(members, originalQuery) {
     // Display found members
     let html = '';
     members.forEach(member => {
-        const memberName = member.NAME || '';
-        const memberPhone = member['PHONE NUMBER'] || '';
-        const memberGender = member.GENDER || '';
-        const memberEmail = member['EMAIL '] || '';
-        const memberDOB = member['DATE OF BIRTH'] || member.DOB || '';
+        // Use helper function to safely get member properties
+        const memberName = getMemberProperty(member, ['NAME', 'name', 'Name']);
+        const memberPhone = getMemberProperty(member, ['PHONE NUMBER', 'PHONE_NUMBER', 'phone', 'Phone']);
+        const memberGender = getMemberProperty(member, ['GENDER', 'gender', 'Gender']);
+        const memberEmail = getMemberProperty(member, ['EMAIL', 'EMAIL ', 'email', 'Email']);
+        const memberDOB = getMemberProperty(member, ['DATE OF BIRTH', 'DATE_OF_BIRTH', 'DOB', 'dob', 'Dob']);
+        
+        console.log('Member:', memberName, memberPhone, memberGender, memberEmail, memberDOB); // Debug log
         
         // Create display elements only if data exists
         const phoneDisplay = memberPhone ? `<div class="member-phone"><i class="fas fa-phone"></i> ${memberPhone}</div>` : '';
@@ -173,7 +189,7 @@ function displaySearchResults(members, originalQuery) {
         html += `
             <div class="member-item">
                 <div class="member-info">
-                    <div class="member-name">${memberName}</div>
+                    <div class="member-name">${memberName || 'Unknown'}</div>
                     ${phoneDisplay}
                     ${genderDisplay}
                     ${emailDisplay}
@@ -186,6 +202,15 @@ function displaySearchResults(members, originalQuery) {
         `;
     });
     searchResults.innerHTML = html;
+    
+    if (html === '') {
+        searchResults.innerHTML = `
+            <div class="add-member-item" onclick="promptAddNewMember('${originalQuery.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')">
+                <i class="fas fa-user-plus"></i>
+                Add "${originalQuery}" as a new member
+            </div>
+        `;
+    }
 }
 
 // ==================== MARK ATTENDANCE FUNCTION ====================
@@ -451,7 +476,7 @@ function displayTodaysAttendance(records, serviceFilter = 'All') {
     
     records.forEach(record => {
         // Skip if service filter doesn't match (unless it's "All")
-        const recordService = record.Service || record.service;
+        const recordService = getMemberProperty(record, ['Service', 'service', 'SERVICE']);
         if (serviceFilter !== 'All' && recordService !== serviceFilter) {
             return;
         }
@@ -469,6 +494,9 @@ function displayTodaysAttendance(records, serviceFilter = 'All') {
             timeString = `${hour}:${minutes} ${ampm}`;
         }
 
+        // Get member name from various possible property names
+        const memberName = getMemberProperty(record, ['MemberName', 'memberName', 'MEMBERNAME', 'Name', 'name']);
+        
         // Add service badge if viewing all services
         const serviceClass = recordService ? recordService.replace(' ', '-').toLowerCase() : '';
         const serviceBadge = serviceFilter === 'All' && recordService 
@@ -478,7 +506,7 @@ function displayTodaysAttendance(records, serviceFilter = 'All') {
         html += `
             <div class="attendance-item">
                 <div class="attendance-info">
-                    <div class="attendance-name">${record.MemberName || record.memberName || 'Unknown'} ${serviceBadge}</div>
+                    <div class="attendance-name">${memberName || 'Unknown'} ${serviceBadge}</div>
                     <div class="attendance-time">
                         <i class="far fa-clock"></i> ${timeString}
                     </div>
