@@ -32,35 +32,168 @@ function isValidEmail(email) {
 // Date of Birth validation function
 function isValidDOB(dob) {
     if (!dob) return true; // Empty is okay
-    
+
     // Check format YYYY/MM/DD
     const regex = /^\d{4}\/\d{2}\/\d{2}$/;
     if (!regex.test(dob)) return false;
-    
+
     // Parse the date
     const parts = dob.split('/');
     const year = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
     const day = parseInt(parts[2], 10);
-    
+
     const date = new Date(year, month, day);
-    
+
     // Check if date is valid
     if (date.getFullYear() !== year || 
         date.getMonth() !== month || 
         date.getDate() !== day) {
         return false;
     }
-    
+
     // Check if date is in the future
     const today = new Date();
     if (date > today) return false;
-    
+
     // Check if age is reasonable (not older than 150 years)
     const age = today.getFullYear() - year;
     if (age > 150) return false;
-    
+
     return true;
+}
+
+// ============= MEMBER PROPERTY EXTRACTION FUNCTIONS =============
+// These functions handle different property name variations
+
+function extractMemberName(member) {
+    if (!member) return '';
+    
+    // Try various possible name property names - MemberName first (exact match)
+    const possibleKeys = [
+        'MemberName', // EXACT match for your column
+        'NAME', 'name', 'Name',
+        'FULL NAME', 'Full Name', 'full_name',
+        'MEMBER NAME', 'Member Name', 'member_name',
+        'MEMBER', 'member', 'Member'
+    ];
+    
+    for (let key of possibleKeys) {
+        if (member[key] !== undefined && member[key] !== null && member[key] !== '') {
+            console.log(`Found name with key "${key}":`, member[key]);
+            return String(member[key]);
+        }
+    }
+    
+    // Try case-insensitive search
+    for (let key in member) {
+        if (typeof key === 'string' && 
+            (key.toLowerCase().includes('name') || key === 'MemberName') && 
+            member[key] !== undefined && member[key] !== null && member[key] !== '') {
+            console.log(`Found name with key "${key}" (case-insensitive):`, member[key]);
+            return String(member[key]);
+        }
+    }
+    
+    console.log('No name found in member object:', member);
+    return '';
+}
+
+function extractMemberPhone(member) {
+    if (!member) return '';
+    
+    const possibleKeys = [
+        'PHONE NUMBER', 'PHONE_NUMBER', 'Phone Number', 'phone_number',
+        'PHONE', 'phone', 'Phone',
+        'MOBILE', 'mobile', 'Mobile',
+        'CONTACT', 'contact', 'Contact',
+        'Phone Number'  // Added this variation
+    ];
+    
+    for (let key of possibleKeys) {
+        if (member[key] !== undefined && member[key] !== null && member[key] !== '') {
+            return String(member[key]);
+        }
+    }
+    
+    return '';
+}
+
+function extractMemberGender(member) {
+    if (!member) return '';
+    
+    const possibleKeys = [
+        'GENDER', 'gender', 'Gender',
+        'SEX', 'sex', 'Sex'
+    ];
+    
+    for (let key of possibleKeys) {
+        if (member[key] !== undefined && member[key] !== null && member[key] !== '') {
+            return String(member[key]);
+        }
+    }
+    
+    return '';
+}
+
+function extractMemberEmail(member) {
+    if (!member) return '';
+    
+    const possibleKeys = [
+        'EMAIL', 'EMAIL ', 'email', 'Email',
+        'EMAIL ADDRESS', 'EMAIL_ADDRESS', 'Email Address', 'email_address'
+    ];
+    
+    for (let key of possibleKeys) {
+        if (member[key] !== undefined && member[key] !== null && member[key] !== '') {
+            return String(member[key]);
+        }
+    }
+    
+    return '';
+}
+
+function extractMemberDOB(member) {
+    if (!member) return '';
+    
+    const possibleKeys = [
+        'DATE OF BIRTH', 'DATE_OF_BIRTH', 'Date of Birth', 'date_of_birth',
+        'DOB', 'dob', 'Dob',
+        'BIRTHDATE', 'birthdate', 'Birthdate',
+        'BIRTH DATE', 'BIRTH_DATE', 'Birth Date', 'birth_date'
+    ];
+    
+    for (let key of possibleKeys) {
+        if (member[key] !== undefined && member[key] !== null && member[key] !== '') {
+            return String(member[key]);
+        }
+    }
+    
+    return '';
+}
+
+// Helper function to get member property safely
+function getMemberProperty(member, possibleKeys) {
+    if (!member || typeof member !== 'object') return '';
+    
+    // First try exact matches
+    for (let key of possibleKeys) {
+        if (member[key] !== undefined && member[key] !== null && member[key] !== '') {
+            return String(member[key]);
+        }
+    }
+    
+    // Try case-insensitive matches
+    const lowerKeys = possibleKeys.map(k => k.toLowerCase());
+    for (let key in member) {
+        if (member.hasOwnProperty(key) && 
+            lowerKeys.includes(key.toLowerCase()) && 
+            member[key] !== undefined && member[key] !== null && member[key] !== '') {
+            return String(member[key]);
+        }
+    }
+    
+    return '';
 }
 
 // Set today's date in the header
@@ -85,7 +218,7 @@ async function callBackend(action, data = {}) {
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
         });
-        
+
         const text = await response.text();
         let result;
         try {
@@ -94,7 +227,7 @@ async function callBackend(action, data = {}) {
             console.error('Failed to parse JSON:', text);
             throw new Error('Invalid response from server');
         }
-        
+
         return result;
     } catch (error) {
         console.error('Error calling backend:', error);
@@ -139,24 +272,14 @@ async function performSearch(query) {
     displaySearchResults(result, query);
 }
 
-// Helper function to get member property safely
-function getMemberProperty(member, possibleKeys) {
-    for (let key of possibleKeys) {
-        if (member[key] !== undefined && member[key] !== null && member[key] !== '') {
-            return member[key];
-        }
-    }
-    return '';
-}
-
 function displaySearchResults(members, originalQuery) {
     console.log('Members data received:', members);
-    
+
     // Debug: Check the structure of the first member if it exists
     if (members && members.length > 0) {
         console.log('First member object:', members[0]);
         console.log('All keys in first member:', Object.keys(members[0]));
-        
+
         // Log each key-value pair
         for (let key in members[0]) {
             console.log(`Key: "${key}" = "${members[0][key]}"`);
@@ -178,25 +301,17 @@ function displaySearchResults(members, originalQuery) {
     // Display found members
     let html = '';
     let foundMembers = 0;
-    
+
     members.forEach((member, index) => {
         console.log(`\n=== Processing member ${index} ===`);
         console.log('Full member object:', member);
-        
-        // DIRECT APPROACH: Check for MemberName specifically
-        let memberName = '';
-        if (member.MemberName !== undefined && member.MemberName !== null && member.MemberName !== '') {
-            memberName = String(member.MemberName);
-            console.log(`Found MemberName directly: "${memberName}"`);
-        } else {
-            // Fallback to other possible keys
-            memberName = extractMemberName(member);
-        }
-        
-        const memberPhone = member['Phone Number'] || member.Phone || member.phone || member.PHONE || '';
-        const memberGender = member.Gender || member.gender || member.GENDER || '';
-        const memberEmail = member.Email || member.email || member.EMAIL || member['EMAIL '] || '';
-        const memberDOB = member['Date of Birth'] || member.DOB || member.dob || member['DATE OF BIRTH'] || '';
+
+        // Use the extraction functions to get member properties
+        const memberName = extractMemberName(member);
+        const memberPhone = extractMemberPhone(member);
+        const memberGender = extractMemberGender(member);
+        const memberEmail = extractMemberEmail(member);
+        const memberDOB = extractMemberDOB(member);
 
         console.log(`Extracted values - Name: "${memberName}", Phone: "${memberPhone}"`);
 
@@ -205,7 +320,7 @@ function displaySearchResults(members, originalQuery) {
             console.log(`Skipping member ${index} - no name found`);
             return; // Skip this member
         }
-        
+
         foundMembers++;
 
         // Create display elements only if data exists
@@ -233,11 +348,11 @@ function displaySearchResults(members, originalQuery) {
             </div>
         `;
     });
-    
+
     console.log(`\n=== Summary ===`);
     console.log(`Total members returned: ${members.length}`);
     console.log(`Members displayed: ${foundMembers}`);
-    
+
     searchResults.innerHTML = html;
 
     if (html === '' || foundMembers === 0) {
@@ -258,7 +373,7 @@ async function markMemberAttendance(memberName, memberPhone) {
     // Get selected service
     const serviceSelect = document.getElementById('serviceSelect');
     const service = serviceSelect ? serviceSelect.value : 'First Service';
-    
+
     const result = await callBackend('markAttendance', {
         memberName: memberName,
         memberPhone: memberPhone,
@@ -302,20 +417,20 @@ function promptAddNewMember(name) {
 function continueAddMember(gender) {
     // Close the gender modal
     genderModal.style.display = 'none';
-    
+
     if (!window.pendingNewMember) {
         console.error('No pending member data found');
         showError('No member data found. Please try again.');
         return;
     }
-    
+
     const name = window.pendingNewMember.name;
     const memberData = window.pendingNewMember.data;
     memberData.Gender = gender;
-    
+
     // Clear the pending member data
     window.pendingNewMember = null;
-    
+
     // Collect additional information
     collectMemberInfo(memberData, name);
 }
@@ -326,21 +441,21 @@ async function collectMemberInfo(memberData, name) {
     function customPrompt(message, defaultValue = '') {
         return prompt(message, defaultValue);
     }
-    
+
     // === PHONE NUMBER ===
     let phoneValid = false;
     let phoneAttempts = 0;
     while (!phoneValid && phoneAttempts < 3) {
         phoneAttempts++;
         let phone = customPrompt(`Add new member: "${name}"\n\nPhone Number (must start with 0, 11 digits total, Optional):\n\nLeave empty and click OK to skip.`, '');
-        
+
         if (phone === null) {
             // User cancelled the entire process
             return;
         }
-        
+
         phone = phone.trim();
-        
+
         if (!phone) {
             memberData.Phone = ''; // Store as empty string
             phoneValid = true;
@@ -352,7 +467,7 @@ async function collectMemberInfo(memberData, name) {
             phoneValid = true;
         }
     }
-    
+
     if (!phoneValid) {
         alert('Phone input cancelled. Using empty phone number.');
         memberData.Phone = '';
@@ -364,13 +479,13 @@ async function collectMemberInfo(memberData, name) {
     while (!parentPhoneValid && parentPhoneAttempts < 3) {
         parentPhoneAttempts++;
         let parentPhone = customPrompt('Parent/Guardian Phone Number (must start with 0, 11 digits total, Optional):\n\nLeave empty and click OK to skip.', '');
-        
+
         if (parentPhone === null) {
             memberData.ParentPhone = '';
             parentPhoneValid = true;
             continue;
         }
-        
+
         parentPhone = parentPhone.trim();
         if (!parentPhone) {
             memberData.ParentPhone = '';
@@ -383,7 +498,7 @@ async function collectMemberInfo(memberData, name) {
             parentPhoneValid = true;
         }
     }
-    
+
     if (!parentPhoneValid) {
         alert('Parent phone input cancelled. Using empty parent phone.');
         memberData.ParentPhone = '';
@@ -395,13 +510,13 @@ async function collectMemberInfo(memberData, name) {
     while (!emailValid && emailAttempts < 3) {
         emailAttempts++;
         let email = customPrompt('Email (Optional, must be @gmail.com, @yahoo.com, or @outlook.com):\n\nLeave empty and click OK to skip.', '');
-        
+
         if (email === null) {
             memberData.Email = '';
             emailValid = true;
             continue;
         }
-        
+
         email = email.trim();
         if (!email) {
             memberData.Email = '';
@@ -415,7 +530,7 @@ async function collectMemberInfo(memberData, name) {
             emailValid = true;
         }
     }
-    
+
     if (!emailValid) {
         alert('Email input cancelled. Using empty email.');
         memberData.Email = '';
@@ -435,13 +550,13 @@ async function collectMemberInfo(memberData, name) {
     while (!dobValid && dobAttempts < 3) {
         dobAttempts++;
         let dob = customPrompt('Date of Birth (Optional, format: YYYY/MM/DD):\n\nExample: 1990/05/15\nLeave empty and click OK to skip.', '');
-        
+
         if (dob === null) {
             memberData.DateOfBirth = '';
             dobValid = true;
             continue;
         }
-        
+
         dob = dob.trim();
         if (!dob) {
             memberData.DateOfBirth = '';
@@ -459,7 +574,7 @@ async function collectMemberInfo(memberData, name) {
             dobValid = true;
         }
     }
-    
+
     if (!dobValid) {
         alert('Date of birth input cancelled. Using empty date.');
         memberData.DateOfBirth = '';
@@ -472,7 +587,7 @@ async function collectMemberInfo(memberData, name) {
 // ==================== ADD NEW MEMBER TO BACKEND ====================
 async function addNewMember(memberData) {
     const result = await callBackend('addNewMember', memberData);
-    
+
     if (result.error) {
         showError(`Failed to add member: ${result.error}`);
     } else {
@@ -513,19 +628,19 @@ function displayTodaysAttendance(records, serviceFilter = 'All') {
 
     let html = '';
     let filteredCount = 0;
-    
+
     records.forEach(record => {
         // Skip if service filter doesn't match (unless it's "All")
         const recordService = getMemberProperty(record, ['Service', 'service', 'SERVICE']);
         if (serviceFilter !== 'All' && recordService !== serviceFilter) {
             return;
         }
-        
+
         filteredCount++;
-        
+
         let timeString = '--:--';
         const timestampStr = record.Timestamp || '';
-        
+
         const timeMatch = timestampStr.match(/(\d{1,2}:\d{2}:\d{2})/);
         if (timeMatch) {
             const [hours, minutes] = timeMatch[1].split(':');
@@ -534,9 +649,9 @@ function displayTodaysAttendance(records, serviceFilter = 'All') {
             timeString = `${hour}:${minutes} ${ampm}`;
         }
 
-        // Get member name from various possible property names
+        // Get member name - using MemberName as the first priority
         const memberName = getMemberProperty(record, ['MemberName', 'memberName', 'MEMBERNAME', 'Name', 'name']);
-        
+
         // Add service badge if viewing all services
         const serviceClass = recordService ? recordService.replace(' ', '-').toLowerCase() : '';
         const serviceBadge = serviceFilter === 'All' && recordService 
@@ -585,18 +700,18 @@ const offeringList = document.getElementById('offeringList');
 // Record offering
 recordOfferingBtn.addEventListener('click', async () => {
     const amount = offeringAmount.value.trim();
-    
+
     if (!amount || parseFloat(amount) <= 0) {
         showOfferingMessage('Please enter a valid amount.', 'error');
         return;
     }
-    
+
     // Show loading
     recordOfferingBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recording...';
     recordOfferingBtn.disabled = true;
-    
+
     const result = await callBackend('recordOffering', { amount: amount });
-    
+
     if (result.error) {
         showOfferingMessage('Error: ' + result.error, 'error');
     } else {
@@ -604,7 +719,7 @@ recordOfferingBtn.addEventListener('click', async () => {
         offeringAmount.value = '';
         loadTodaysOfferings(); // Refresh the list
     }
-    
+
     // Reset button
     recordOfferingBtn.innerHTML = '<i class="fas fa-save"></i> Record Offering';
     recordOfferingBtn.disabled = false;
@@ -613,12 +728,12 @@ recordOfferingBtn.addEventListener('click', async () => {
 // Load today's offerings
 async function loadTodaysOfferings() {
     const result = await callBackend('getTodaysOfferings');
-    
+
     if (result.error) {
         offeringList.innerHTML = `<div class="offering-error">Error loading offerings: ${result.error}</div>`;
         return;
     }
-    
+
     displayTodaysOfferings(result);
 }
 
@@ -632,16 +747,16 @@ function displayTodaysOfferings(offerings) {
         `;
         return;
     }
-    
+
     let html = '';
     let total = 0;
-    
+
     offerings.forEach(offering => {
         const amount = offering.Amount || offering.amount || 0;
         const recordedBy = offering.RecordedBy || offering.recordedBy || 'Unknown';
         const time = offering.Timestamp || offering.timestamp;
         let timeString = '--:--';
-        
+
         if (time) {
             const timeMatch = time.toString().match(/(\d{1,2}:\d{2}:\d{2})/);
             if (timeMatch) {
@@ -651,9 +766,9 @@ function displayTodaysOfferings(offerings) {
                 timeString = `${hour}:${minutes} ${ampm}`;
             }
         }
-        
+
         total += parseFloat(amount);
-        
+
         html += `
             <div class="offering-item">
                 <div>
@@ -667,7 +782,7 @@ function displayTodaysOfferings(offerings) {
             </div>
         `;
     });
-    
+
     // Add total at the bottom
     html += `
         <div class="offering-item total-offering">
@@ -680,7 +795,7 @@ function displayTodaysOfferings(offerings) {
             </div>
         </div>
     `;
-    
+
     offeringList.innerHTML = html;
 }
 
@@ -688,7 +803,7 @@ function showOfferingMessage(message, type) {
     offeringMessage.textContent = message;
     offeringMessage.className = 'offering-message';
     offeringMessage.classList.add(`offering-${type}`);
-    
+
     // Auto-hide success messages after 5 seconds
     if (type === 'success') {
         setTimeout(() => {
@@ -706,7 +821,7 @@ document.addEventListener('DOMContentLoaded', function() {
             successModal.style.display = 'none';
         });
     }
-    
+
     // Update refresh button to respect service filter
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => {
@@ -715,7 +830,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loadTodaysAttendance(currentFilter);
         });
     }
-    
+
     // Close modals when clicking outside
     window.addEventListener('click', (event) => {
         if (event.target === successModal) {
@@ -726,7 +841,7 @@ document.addEventListener('DOMContentLoaded', function() {
             window.pendingNewMember = null;
         }
     });
-    
+
     // Set up gender modal buttons
     if (genderModal) {
         genderModal.addEventListener('click', function(event) {
@@ -737,14 +852,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     if (cancelGenderBtn) {
         cancelGenderBtn.addEventListener('click', function() {
             genderModal.style.display = 'none';
             window.pendingNewMember = null;
         });
     }
-    
+
     // Service filter change listener
     const attendanceFilter = document.getElementById('attendanceFilter');
     if (attendanceFilter) {
@@ -752,7 +867,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loadTodaysAttendance(this.value);
         });
     }
-    
+
     // Add service badge styles dynamically
     const style = document.createElement('style');
     style.textContent = `
@@ -779,15 +894,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     `;
     document.head.appendChild(style);
-    
+
     // Initialize page
     setCurrentDate();
     loadTodaysAttendance();
     loadTodaysOfferings();
-    
+
     if (searchInput) {
         searchInput.focus();
     }
-    
+
     console.log('Attendance System Initialized Successfully');
 });
+
+// Add this test function to help debug
+function testSearchFunctionality() {
+    console.log('=== Testing Search Functionality ===');
+    
+    // Test with a known name
+    const testName = 'Test'; // Change to a name you know exists
+    performSearch(testName);
+}
