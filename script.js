@@ -29,6 +29,40 @@ function isValidEmail(email) {
     return emailRegex.test(email);
 }
 
+// Date of Birth validation function
+function isValidDOB(dob) {
+    if (!dob) return true; // Empty is okay
+    
+    // Check format YYYY/MM/DD
+    const regex = /^\d{4}\/\d{2}\/\d{2}$/;
+    if (!regex.test(dob)) return false;
+    
+    // Parse the date
+    const parts = dob.split('/');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
+    const day = parseInt(parts[2], 10);
+    
+    const date = new Date(year, month, day);
+    
+    // Check if date is valid
+    if (date.getFullYear() !== year || 
+        date.getMonth() !== month || 
+        date.getDate() !== day) {
+        return false;
+    }
+    
+    // Check if date is in the future
+    const today = new Date();
+    if (date > today) return false;
+    
+    // Check if age is reasonable (not older than 150 years)
+    const age = today.getFullYear() - year;
+    if (age > 150) return false;
+    
+    return true;
+}
+
 // Set today's date in the header
 function setCurrentDate() {
     const now = new Date();
@@ -107,8 +141,9 @@ async function performSearch(query) {
 function displaySearchResults(members, originalQuery) {
     if (members.length === 0) {
         // No members found - show "Add New" option
+        const escapedName = originalQuery.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         searchResults.innerHTML = `
-            <div class="add-member-item" onclick="promptAddNewMember('${originalQuery}')">
+            <div class="add-member-item" onclick="promptAddNewMember('${escapedName}')">
                 <i class="fas fa-user-plus"></i>
                 Add "${originalQuery}" as a new member
             </div>
@@ -119,19 +154,21 @@ function displaySearchResults(members, originalQuery) {
     // Display found members
     let html = '';
     members.forEach(member => {
-        // CORRECTED: Use the exact property names from your backend
         const memberName = member.NAME || '';
         const memberPhone = member['PHONE NUMBER'] || '';
         const memberGender = member.GENDER || '';
-        const memberEmail = member['EMAIL '] || ''; // Note the space after EMAIL
+        const memberEmail = member['EMAIL '] || '';
+        const memberDOB = member['DATE OF BIRTH'] || member.DOB || '';
         
         // Create display elements only if data exists
         const phoneDisplay = memberPhone ? `<div class="member-phone"><i class="fas fa-phone"></i> ${memberPhone}</div>` : '';
         const emailDisplay = memberEmail ? `<div class="member-email"><i class="fas fa-envelope"></i> ${memberEmail}</div>` : '';
         const genderDisplay = memberGender ? `<div class="member-gender"><i class="fas fa-user"></i> ${memberGender}</div>` : '';
+        const dobDisplay = memberDOB ? `<div class="member-dob"><i class="fas fa-birthday-cake"></i> ${memberDOB}</div>` : '';
 
-        // Escape single quotes in the name for the onclick attribute
-        const escapedName = memberName.replace(/'/g, "\\'");
+        // Escape special characters for the onclick attribute
+        const escapedName = memberName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const escapedPhone = (memberPhone || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         
         html += `
             <div class="member-item">
@@ -140,8 +177,9 @@ function displaySearchResults(members, originalQuery) {
                     ${phoneDisplay}
                     ${genderDisplay}
                     ${emailDisplay}
+                    ${dobDisplay}
                 </div>
-                <button class="btn-attend" onclick="markMemberAttendance('${escapedName}', '${memberPhone}')">
+                <button class="btn-attend" onclick="markMemberAttendance('${escapedName}', '${escapedPhone}')">
                     <i class="fas fa-check-circle"></i> Present
                 </button>
             </div>
@@ -326,6 +364,42 @@ async function collectMemberInfo(memberData, name) {
         memberData.Address = address.trim();
     }
 
+    // === DATE OF BIRTH ===
+    let dobValid = false;
+    let dobAttempts = 0;
+    while (!dobValid && dobAttempts < 3) {
+        dobAttempts++;
+        let dob = customPrompt('Date of Birth (Optional, format: YYYY/MM/DD):\n\nExample: 1990/05/15\nLeave empty and click OK to skip.', '');
+        
+        if (dob === null) {
+            memberData.DateOfBirth = '';
+            dobValid = true;
+            continue;
+        }
+        
+        dob = dob.trim();
+        if (!dob) {
+            memberData.DateOfBirth = '';
+            dobValid = true;
+        } else if (!isValidDOB(dob)) {
+            const errorMsg = 'Invalid date format. Please use YYYY/MM/DD format.\n\n' +
+                           'Examples:\n' +
+                           '- 2000/01/15 (January 15, 2000)\n' +
+                           '- 1995/12/31 (December 31, 1995)\n\n' +
+                           'Or leave empty by clicking OK without typing.';
+            alert(errorMsg);
+            continue;
+        } else {
+            memberData.DateOfBirth = dob;
+            dobValid = true;
+        }
+    }
+    
+    if (!dobValid) {
+        alert('Date of birth input cancelled. Using empty date.');
+        memberData.DateOfBirth = '';
+    }
+
     // === FINAL: Send data to backend ===
     await addNewMember(memberData);
 }
@@ -384,7 +458,7 @@ function displayTodaysAttendance(records, serviceFilter = 'All') {
         
         filteredCount++;
         
-        let timeString = '  ';
+        let timeString = '--:--';
         const timestampStr = record.Timestamp || '';
         
         const timeMatch = timestampStr.match(/(\d{1,2}:\d{2}:\d{2})/);
@@ -396,14 +470,18 @@ function displayTodaysAttendance(records, serviceFilter = 'All') {
         }
 
         // Add service badge if viewing all services
+        const serviceClass = recordService ? recordService.replace(' ', '-').toLowerCase() : '';
         const serviceBadge = serviceFilter === 'All' && recordService 
-            ? `<span class="service-badge ${recordService.replace(' ', '-').toLowerCase()}">${recordService}</span>` 
+            ? `<span class="service-badge ${serviceClass}">${recordService}</span>` 
             : '';
 
         html += `
             <div class="attendance-item">
                 <div class="attendance-info">
                     <div class="attendance-name">${record.MemberName || record.memberName || 'Unknown'} ${serviceBadge}</div>
+                    <div class="attendance-time">
+                        <i class="far fa-clock"></i> ${timeString}
+                    </div>
                 </div>
             </div>
         `;
@@ -627,6 +705,10 @@ document.addEventListener('DOMContentLoaded', function() {
             background-color: #9b59b6;
             color: white;
         }
+        .service-badge.combined-service {
+            background-color: #2ecc71;
+            color: white;
+        }
     `;
     document.head.appendChild(style);
     
@@ -640,6 +722,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('Attendance System Initialized Successfully');
-
 });
-
