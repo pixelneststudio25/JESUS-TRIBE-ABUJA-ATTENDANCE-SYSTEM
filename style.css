@@ -694,4 +694,10 @@ footer {
 #serviceSelect option, #attendanceFilter option {
     padding: 10px;
     background-color: white;
+
+}
+
+.service-badge.combined-service {
+    background-color: #2ecc71;
+    color: white;
 }
