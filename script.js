@@ -159,11 +159,16 @@ async function markMemberAttendance(memberName, memberPhone) {
     const result = await callBackend('markAttendance', {
         memberName: memberName,
         memberPhone: memberPhone,
-        service: service  // Add service parameter
+        service: service
     });
 
     if (result.error) {
-        showError(result.error);
+        if (result.error.includes('already been marked present')) {
+            // Show warning for duplicate, not error
+            showSuccessModal(`Note: ${result.error}`);
+        } else {
+            showError(result.error);
+        }
     } else {
         showSuccessModal(`Attendance marked for ${memberName} (${service})`);
         // Refresh attendance log for current filter
@@ -637,3 +642,4 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Attendance System Initialized Successfully');
 
 });
+
