@@ -1,6 +1,6 @@
 // === SCRIPT.JS - Frontend Logic for Attendance System ===
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz6TCFJrICjrsNau536OnDop38gav3XvYD_ZVkstF7OxoajM3cPoLzg3Tq1ByaXeHy6/exec"; 
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw_MTLmYjYD5RJGujKGd0YVe-q_pYZbS8xp-Ft09S9mftv5CN7HykHED1rF_HrNdr9F/exec"; 
 
 // DOM Elements
 const searchInput = document.getElementById('searchInput');
