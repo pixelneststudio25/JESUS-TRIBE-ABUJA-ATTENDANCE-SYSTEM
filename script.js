@@ -662,9 +662,6 @@ function displayTodaysAttendance(records, serviceFilter = 'All') {
             <div class="attendance-item">
                 <div class="attendance-info">
                     <div class="attendance-name">${memberName || 'Unknown'} ${serviceBadge}</div>
-                    <div class="attendance-time">
-                        <i class="far fa-clock"></i> ${timeString}
-                    </div>
                 </div>
             </div>
         `;
@@ -773,7 +770,6 @@ function displayTodaysOfferings(offerings) {
             <div class="offering-item">
                 <div>
                     <div>Recorded by: ${recordedBy}</div>
-                    <div class="offering-time">${timeString}</div>
                 </div>
                 <div class="offering-amount">₦${parseFloat(amount).toLocaleString('en-US', {
                     minimumFractionDigits: 2,
